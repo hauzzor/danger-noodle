@@ -4,6 +4,7 @@ import { Camera } from "./engine/camera";
 import { InputController } from "./engine/input";
 import { Renderer } from "./render/renderer";
 import { createOverlay } from "./ui/overlay";
+import { createStarterWorld } from "./world/starter";
 
 const canvas = document.getElementById("game") as HTMLCanvasElement;
 const uiRoot = document.getElementById("ui") as HTMLDivElement;
@@ -12,13 +13,14 @@ const camera = new Camera();
 const renderer = new Renderer(canvas, camera);
 new InputController(canvas, camera);
 
-let time = 0;
+const world = createStarterWorld();
+
 const loop = new GameLoop(
   (dt) => {
-    time += dt;
+    world.step(dt);
   },
   () => {
-    renderer.draw(time);
+    renderer.draw(world);
   },
 );
 
