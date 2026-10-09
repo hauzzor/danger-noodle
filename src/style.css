@@ -1,0 +1,108 @@
+:root {
+  color-scheme: dark;
+  --bg: #0e0f13;
+  --panel: rgba(22, 24, 31, 0.86);
+  --border: rgba(255, 255, 255, 0.1);
+  --text: #e8eaf0;
+  --muted: #8b93a5;
+  --accent: #6ad1a3;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  background: var(--bg);
+  color: var(--text);
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  -webkit-tap-highlight-color: transparent;
+}
+
+#app {
+  position: fixed;
+  inset: 0;
+}
+
+#game {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  touch-action: none;
+}
+
+#ui {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+#ui .overlay-top {
+  pointer-events: auto;
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: max(10px, env(safe-area-inset-top)) 14px 10px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--border);
+  backdrop-filter: blur(8px);
+  flex-wrap: wrap;
+}
+
+#ui .brand {
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--accent);
+}
+
+#ui .control {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}
+
+#ui .control-label {
+  color: var(--muted);
+}
+
+#ui .control-value {
+  min-width: 54px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+}
+
+#ui input[type="range"] {
+  width: 160px;
+  accent-color: var(--accent);
+}
+
+#ui .actions {
+  display: flex;
+  gap: 8px;
+  margin-left: auto;
+  flex-wrap: wrap;
+}
+
+#ui .btn {
+  padding: 6px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text);
+  font-size: 13px;
+}
+
+#ui .btn:disabled {
+  opacity: 0.4;
+}
