@@ -1,9 +1,18 @@
 export interface OverlayHandlers {
   onSpeed: (speed: number) => void;
+  onRegenerate: () => void;
+  onClear: () => void;
+  onSave: () => void;
+  onLoad: () => void;
+  onExport: () => void;
+  onImport: () => void;
 }
 
 export interface Overlay {
   setSpeed: (speed: number) => void;
+  setLevel: (level: number) => void;
+  setStatus: (text: string) => void;
+  toast: (text: string) => void;
 }
 
 export function createOverlay(root: HTMLElement, handlers: OverlayHandlers): Overlay {
@@ -35,31 +44,51 @@ export function createOverlay(root: HTMLElement, handlers: OverlayHandlers): Ove
   slider.addEventListener("input", applySpeed);
   speedWrap.append(speedLabel, slider, speedValue);
 
+  const status = document.createElement("div");
+  status.className = "status";
+
   const actions = document.createElement("div");
   actions.className = "actions";
-  for (const [label, key] of [
-    ["Regenerate", "regen"],
-    ["Clear", "clear"],
-    ["Save", "save"],
-    ["Load", "load"],
-  ] as const) {
+  const defs: [string, () => void][] = [
+    ["Regenerate", handlers.onRegenerate],
+    ["Clear", handlers.onClear],
+    ["Save", handlers.onSave],
+    ["Load", handlers.onLoad],
+    ["Export", handlers.onExport],
+    ["Import", handlers.onImport],
+  ];
+  for (const [label, fn] of defs) {
     const btn = document.createElement("button");
     btn.className = "btn";
     btn.textContent = label;
-    btn.dataset.action = key;
-    btn.disabled = true;
+    btn.addEventListener("click", fn);
     actions.append(btn);
   }
 
-  bar.append(title, speedWrap, actions);
-  root.append(bar);
+  const toastEl = document.createElement("div");
+  toastEl.className = "toast hidden";
 
+  bar.append(title, speedWrap, status, actions);
+  root.append(bar, toastEl);
   applySpeed();
 
+  let toastTimer = 0;
   return {
     setSpeed: (speed: number) => {
       slider.value = String(speed);
       applySpeed();
+    },
+    setLevel: (level: number) => {
+      status.dataset.level = String(level);
+    },
+    setStatus: (text: string) => {
+      status.textContent = text;
+    },
+    toast: (text: string) => {
+      toastEl.textContent = text;
+      toastEl.classList.remove("hidden");
+      window.clearTimeout(toastTimer);
+      toastTimer = window.setTimeout(() => toastEl.classList.add("hidden"), 2200);
     },
   };
 }
