@@ -30,13 +30,14 @@ export function createStarterCreature(world: World): void {
     if (bond >= 0) world.spawnTravellerOnBond(bond, "basic");
   }
 
-  // Generators and contractors ride the starter body from the start, so signals
-  // and contraction can be wired up right away.
-  for (let i = 0; i < 2; i++) {
+  // Generators and contractors ride the starter body from the start (active
+  // travellers on the structure), so signals and contraction can be wired up
+  // right away.
+  for (let i = 0; i < 3; i++) {
     const bond = world.randomActiveBond();
     if (bond >= 0) world.spawnTravellerOnBond(bond, "generator");
   }
-  for (let i = 0; i < 5; i++) {
+  for (let i = 0; i < 6; i++) {
     const bond = world.randomActiveBond();
     if (bond >= 0) world.spawnTravellerOnBond(bond, "contractor");
   }
