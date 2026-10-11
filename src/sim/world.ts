@@ -441,21 +441,25 @@ export class World {
   }
 
   // Free travellers that touch the structure become active (ride a beam).
+  // Contact is by the rim of the structure: a beam capsule or a block's edge,
+  // not only the block centre.
   private attachFreeTravellers(): void {
-    const contact = TRAVELLER_RADIUS + BEAM_RADIUS;
     for (const t of this.travellers) {
       if (t.attached) continue;
       let best = -1;
-      let bestD = contact;
+      let bestGap = TRAVELLER_RADIUS;
       this.bonds.forEach((bond, i) => {
         if (!bond.active) return;
         const a = this.blobs[bond.a];
         const b = this.blobs[bond.b];
         if (!a || !b || a.removed || b.removed || a.held || b.held) return;
         const cp = closestOnSegment(t.x, t.y, a.x, a.y, b.x, b.y);
-        const d = Math.hypot(t.x - cp.x, t.y - cp.y);
-        if (d < bestD) {
-          bestD = d;
+        const beamGap = Math.hypot(t.x - cp.x, t.y - cp.y) - BEAM_RADIUS;
+        const aGap = Math.hypot(t.x - a.x, t.y - a.y) - a.radius;
+        const bGap = Math.hypot(t.x - b.x, t.y - b.y) - b.radius;
+        const gap = Math.min(beamGap, aGap, bGap);
+        if (gap < bestGap) {
+          bestGap = gap;
           best = i;
         }
       });
