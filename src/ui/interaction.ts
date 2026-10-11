@@ -1,4 +1,5 @@
 import type { Camera } from "../engine/camera";
+import { closestOnSegment } from "../sim/geometry";
 import { units } from "../sim/units";
 import type { Blob, BlockType, Traveller, Vec2 } from "../sim/types";
 import type { World } from "../sim/world";
@@ -30,6 +31,7 @@ export interface DragRender {
 
 const TRAVELLER_PICK = units(0.24);
 const BLOB_PICK = units(0.6);
+const BEAM_PICK = units(0.5);
 const MOVE_THRESHOLD = 6;
 
 type DragState = { kind: "blob" | "traveller"; blob?: Blob; traveller?: Traveller; pos: Vec2; origin?: number[] };
@@ -97,6 +99,26 @@ export class Interaction {
     if (bestT && bestB) return bestTD <= bestBD ? { kind: "traveller", traveller: bestT } : { kind: "blob", blob: bestB };
     if (bestT) return { kind: "traveller", traveller: bestT };
     if (bestB) return { kind: "blob", blob: bestB };
+
+    // Nothing solid under the pointer: allow grabbing a block by pressing any
+    // part of the structure, i.e. along a beam too. Pick the nearer endpoint.
+    let beamBlob: Blob | null = null;
+    let bestBeamD = BEAM_PICK;
+    for (const bond of world.bonds) {
+      if (!bond.active) continue;
+      const a = world.blobs[bond.a];
+      const b = world.blobs[bond.b];
+      if (!a || !b || a.removed || b.removed || a.held || b.held) continue;
+      const cp = closestOnSegment(wp.x, wp.y, a.x, a.y, b.x, b.y);
+      const d = Math.hypot(wp.x - cp.x, wp.y - cp.y);
+      if (d < bestBeamD) {
+        bestBeamD = d;
+        const da = Math.hypot(wp.x - a.x, wp.y - a.y);
+        const db = Math.hypot(wp.x - b.x, wp.y - b.y);
+        beamBlob = da <= db ? a : b;
+      }
+    }
+    if (beamBlob) return { kind: "blob", blob: beamBlob };
     return { kind: "none" };
   }
 
