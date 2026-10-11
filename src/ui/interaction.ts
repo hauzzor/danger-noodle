@@ -222,10 +222,10 @@ export class Interaction {
           // A plain click: put the block back exactly where it was and open its menu.
           world.attachBlob(blob, blob.x, blob.y, this.drag.origin);
           this.o.onBlobTap(blob, p);
-        } else if (world.placementBlocked(this.drag.pos.x, this.drag.pos.y)) {
-          // Cannot be built here: return it to where it came from.
-          world.attachBlob(blob, blob.x, blob.y, this.drag.origin);
         } else {
+          // Replace: attach the shown beams, or — if it would end up with no
+          // connecting beams (nothing in range, or the spot is blocked) — turn
+          // it into a loose traveller instead.
           world.attachBlob(blob, this.drag.pos.x, this.drag.pos.y, plan);
         }
       }
