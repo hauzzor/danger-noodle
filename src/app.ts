@@ -9,6 +9,7 @@ import { createWorld, createStarterCreature } from "./world/generator";
 import { createProgress, grantReward, setGoal, type Progress } from "./game/state";
 import { deserialize, exportSnapshot, importSnapshot, loadSlot, saveSlot, serialize } from "./persistence/save";
 import type { World } from "./sim/world";
+import type { ActionKind, Rule, Vec2 } from "./sim/types";
 
 export class App {
   private world: World;
@@ -166,5 +167,56 @@ export class App {
     this.progress = restored.progress;
     this.resetView();
     this.overlay.toast("Imported snapshot");
+  }
+
+  debugApi() {
+    return {
+      getWorld: () => this.world,
+      getProgress: () => this.progress,
+      getCamera: () => this.camera,
+      getLoop: () => this.loop,
+      toScreen: (x: number, y: number): Vec2 => this.camera.w2s(x, y),
+      setSpeed: (s: number): void => {
+        this.loop.speed = s;
+      },
+      worldSummary: () => ({
+        blobs: this.world.activeBlobs().length,
+        bonds: this.world.bonds.filter((b) => b.active).length,
+        travellers: this.world.travellers.length,
+        collectibles: this.world.collectibles.length,
+        pulses: this.world.pulses.length,
+        goalReached: this.world.goalReached,
+        level: this.progress.level,
+        goal: { ...this.world.goal },
+      }),
+      addRule: (
+        blobId: number,
+        rule: {
+          trigger: string;
+          action: ActionKind;
+          delay?: number;
+          duration?: number;
+          condition?: { op: ">" | "<" | "="; value: number } | null;
+        },
+      ): boolean => {
+        const blob = this.world.getBlob(blobId);
+        if (!blob) return false;
+        const full: Rule = {
+          id: Math.floor(Math.random() * 1e9),
+          trigger: rule.trigger,
+          action: rule.action,
+          condition: rule.condition ?? null,
+          delay: rule.delay ?? 0,
+          duration: rule.duration ?? 0,
+          busyUntil: 0,
+        };
+        blob.rules.push(full);
+        return true;
+      },
+      regenerate: (): void => this.regenerate(),
+      clearCreature: (): void => this.clearCreature(),
+      save: (): void => this.save(),
+      load: (): void => this.load(),
+    };
   }
 }
