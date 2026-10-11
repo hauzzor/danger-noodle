@@ -21,6 +21,9 @@ export interface Snapshot {
     signalSpeed: number;
     maxHops: number;
     color: number;
+    contractTo: number;
+    contractTime: number;
+    releaseTime: number;
   }[];
   bonds: { a: number; b: number; rest: number; stiffness: number }[];
   travellers: {
@@ -37,7 +40,7 @@ export interface Snapshot {
 
 export function serialize(world: World, progress: Progress): Snapshot {
   return {
-    version: 7,
+    version: 8,
     timestamp: Date.now(),
     progress: { ...progress },
     time: world.time,
@@ -55,6 +58,9 @@ export function serialize(world: World, progress: Progress): Snapshot {
       signalSpeed: b.signalSpeed,
       maxHops: b.maxHops,
       color: b.color,
+      contractTo: b.contractTo,
+      contractTime: b.contractTime,
+      releaseTime: b.releaseTime,
     })),
     bonds: world.bonds
       .filter((bond) => bond.active)
@@ -87,6 +93,9 @@ export function deserialize(data: Snapshot): { world: World; progress: Progress 
     blob.signalSpeed = bd.signalSpeed ?? 1 / HOP_TIME;
     blob.maxHops = bd.maxHops ?? MAX_HOPS;
     blob.color = bd.color ?? (blob.type === "generator" ? 2 : 142);
+    blob.contractTo = bd.contractTo ?? 0.5;
+    blob.contractTime = bd.contractTime ?? 1;
+    blob.releaseTime = bd.releaseTime ?? 1;
     idMap.set(bd.id, blob.id);
   }
 

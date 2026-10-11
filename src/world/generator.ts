@@ -1,5 +1,6 @@
 import { mulberry32 } from "../engine/rng";
 import { groundY } from "../sim/terrain";
+import type { BlockType } from "../sim/types";
 import { World } from "../sim/world";
 
 const SPAWN = { x: -1.8, y: -10 };
@@ -32,6 +33,10 @@ export function createStarterCreature(world: World): void {
   // One generator loose block rides the starter body from the start.
   const genBond = world.randomActiveBond();
   if (genBond >= 0) world.spawnTravellerOnBond(genBond, "generator");
+
+  // ...and one contractor, so signals can be wired up right away.
+  const conBond = world.randomActiveBond();
+  if (conBond >= 0) world.spawnTravellerOnBond(conBond, "contractor");
 }
 
 export function createWorld(seed: number): World {
@@ -41,7 +46,8 @@ export function createWorld(seed: number): World {
   let x = 8;
   while (x < 600) {
     const cy = groundY(x) - 1.0;
-    const type = rand() < 0.2 ? "generator" : "basic";
+    const r = rand();
+    const type: BlockType = r < 0.15 ? "generator" : r < 0.3 ? "contractor" : "basic";
     world.addFreeTraveller(type, x, cy);
     x += 16 + rand() * 24;
   }

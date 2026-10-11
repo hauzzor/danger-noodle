@@ -56,7 +56,9 @@ export class Renderer {
   }
 
   private hue(blob: Blob): number {
-    return blob.type === "generator" ? blob.color : 142 + (((blob.id * 47) % 13) - 6);
+    if (blob.type === "generator") return blob.color;
+    if (blob.type === "contractor") return 205;
+    return 142 + (((blob.id * 47) % 13) - 6);
   }
 
   private blockColor(blob: Blob): string {
@@ -161,11 +163,26 @@ export class Renderer {
     for (const blob of world.activeBlobs()) {
       if (blob.held) continue;
       this.drawBlock(blob);
+      if (blob.contracting) this.drawContractGlow(blob);
     }
   }
 
+  private drawContractGlow(blob: Blob): void {
+    const { ctx, camera } = this;
+    const p = this.P(blob.x, blob.y);
+    const r = blob.radius * camera.zoom;
+    const act = Math.max(0, Math.min(1, (1 - blob.contractAmount) * 2));
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, r * 1.3, 0, Math.PI * 2);
+    ctx.strokeStyle = `hsla(${this.hue(blob)}, 90%, 78%, ${0.35 + 0.55 * act})`;
+    ctx.lineWidth = Math.max(2, r * 0.28);
+    ctx.stroke();
+  }
+
   private travellerHue(type: BlockType): number {
-    return type === "generator" ? 2 : 146;
+    if (type === "generator") return 2;
+    if (type === "contractor") return 205;
+    return 146;
   }
 
   private drawTravellers(world: World): void {
@@ -263,6 +280,12 @@ export class Renderer {
       signalSpeed: 0,
       maxHops: 0,
       color: drag.type === "generator" ? 2 : 142,
+      contracting: false,
+      contractTimer: 0,
+      contractAmount: 1,
+      contractTo: 0.5,
+      contractTime: 1,
+      releaseTime: 1,
     };
 
     for (const id of drag.plan) {

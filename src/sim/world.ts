@@ -51,6 +51,12 @@ export class World {
       signalSpeed: 1 / HOP_TIME,
       maxHops: MAX_HOPS,
       color: type === "generator" ? 2 : 142,
+      contracting: false,
+      contractTimer: 0,
+      contractAmount: 1,
+      contractTo: 0.5,
+      contractTime: 1,
+      releaseTime: 1,
     };
     this.blobs.push(blob);
     this.rebuildAdjacency();
@@ -417,6 +423,7 @@ export class World {
     updateTravellers(this, dt);
     this.updateEmitters(dt);
     this.updatePulses(dt);
+    this.updateContractors(dt);
   }
 
   // Attached travellers whose beam is gone become free and fall.
@@ -545,9 +552,51 @@ export class World {
     for (const pulse of this.pulses) {
       for (const [node, hops] of pulse.hopDist) {
         if (pulse.delivered.has(node)) continue;
-        if (pulse.age >= hops * pulse.hopTime) pulse.delivered.add(node);
+        if (pulse.age >= hops * pulse.hopTime) {
+          pulse.delivered.add(node);
+          const blob = this.blobs[node];
+          if (blob && !blob.removed) this.handleSignal(blob);
+        }
       }
     }
+  }
+
+  // A delivered signal starts a contractor's contraction; while one is already
+  // running, further signals are ignored.
+  private handleSignal(blob: Blob): void {
+    if (blob.type !== "contractor" || blob.contracting) return;
+    blob.contracting = true;
+    blob.contractTimer = 0;
+    blob.contractAmount = 1;
+  }
+
+  private updateContractors(dt: number): void {
+    for (const b of this.blobs) {
+      if (b.removed || !b.contracting) continue;
+      b.contractTimer += dt;
+      const short = Math.max(0.01, b.contractTime);
+      const release = Math.max(0.01, b.releaseTime);
+      const target = Math.min(Math.max(b.contractTo, 0.05), 1);
+      if (b.contractTimer <= short) {
+        b.contractAmount = 1 + (target - 1) * (b.contractTimer / short);
+      } else if (b.contractTimer <= short + release) {
+        b.contractAmount = target + (1 - target) * ((b.contractTimer - short) / release);
+      } else {
+        b.contracting = false;
+        b.contractAmount = 1;
+      }
+    }
+  }
+
+  // A beam's current natural length: `rest`, shortened if either endpoint is a
+  // contracting contractor.
+  private effectiveRest(bond: Bond): number {
+    let factor = 1;
+    for (const idx of [bond.a, bond.b]) {
+      const b = this.blobs[idx];
+      if (b && !b.removed && b.contracting) factor = Math.min(factor, b.contractAmount);
+    }
+    return bond.rest * factor;
   }
 
   private solveConstraints(): void {
@@ -561,7 +610,8 @@ export class World {
       const dist = Math.hypot(dx, dy) || 1e-6;
       const total = a.invMass + b.invMass;
       if (total === 0) continue;
-      const diff = ((dist - bond.rest) / dist) * bond.stiffness * this.bondStiffness;
+      const rest = this.effectiveRest(bond);
+      const diff = ((dist - rest) / dist) * bond.stiffness * this.bondStiffness;
       const ax = (dx * diff * a.invMass) / total;
       const ay = (dy * diff * a.invMass) / total;
       const bx = (dx * diff * b.invMass) / total;

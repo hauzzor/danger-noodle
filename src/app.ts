@@ -148,6 +148,40 @@ export class App {
           blob.color = v;
         },
       });
+    } else if (blob.type === "contractor") {
+      items.push({
+        kind: "slider",
+        label: "Contract to",
+        value: blob.contractTo,
+        min: 0.1,
+        max: 1,
+        step: 0.05,
+        onChange: (v) => {
+          blob.contractTo = v;
+        },
+      });
+      items.push({
+        kind: "slider",
+        label: "Contract (s)",
+        value: blob.contractTime,
+        min: 0.1,
+        max: 5,
+        step: 0.1,
+        onChange: (v) => {
+          blob.contractTime = v;
+        },
+      });
+      items.push({
+        kind: "slider",
+        label: "Release (s)",
+        value: blob.releaseTime,
+        min: 0.1,
+        max: 5,
+        step: 0.1,
+        onChange: (v) => {
+          blob.releaseTime = v;
+        },
+      });
     }
     items.push({
       kind: "button",
