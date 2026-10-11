@@ -56,7 +56,7 @@ export class Renderer {
   }
 
   private hue(blob: Blob): number {
-    return blob.type === "generator" ? 2 : 142 + (((blob.id * 47) % 13) - 6);
+    return blob.type === "generator" ? blob.color : 142 + (((blob.id * 47) % 13) - 6);
   }
 
   private blockColor(blob: Blob): string {
@@ -236,7 +236,7 @@ export class Renderer {
         ctx.globalAlpha = fade;
         ctx.beginPath();
         ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
-        ctx.fillStyle = "#ff5b4a";
+        ctx.fillStyle = `hsl(${pulse.color}, 82%, 62%)`;
         ctx.fill();
         ctx.globalAlpha = 1;
       }
@@ -262,6 +262,7 @@ export class Renderer {
       emitTimer: 0,
       signalSpeed: 0,
       maxHops: 0,
+      color: drag.type === "generator" ? 2 : 142,
     };
 
     for (const id of drag.plan) {

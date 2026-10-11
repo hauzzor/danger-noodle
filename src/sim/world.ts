@@ -46,6 +46,7 @@ export class World {
       emitTimer: 0,
       signalSpeed: 1 / HOP_TIME,
       maxHops: MAX_HOPS,
+      color: type === "generator" ? 2 : 142,
     };
     this.blobs.push(blob);
     this.rebuildAdjacency();
@@ -513,6 +514,7 @@ export class World {
     this.pulses.push({
       id: this.nextPulse++,
       source: source.id,
+      color: source.color,
       age: 0,
       hopTime: 1 / speed,
       maxHops,

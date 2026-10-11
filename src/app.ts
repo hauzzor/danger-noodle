@@ -137,6 +137,17 @@ export class App {
           blob.maxHops = v;
         },
       });
+      items.push({
+        kind: "slider",
+        label: "Colour",
+        value: blob.color,
+        min: 0,
+        max: 360,
+        step: 1,
+        onChange: (v) => {
+          blob.color = v;
+        },
+      });
     }
     items.push({
       kind: "button",

@@ -17,6 +17,7 @@ export interface Blob {
   emitTimer: number;
   signalSpeed: number;
   maxHops: number;
+  color: number;
 }
 
 export interface Bond {
@@ -49,6 +50,7 @@ export interface Traveller {
 export interface Pulse {
   id: number;
   source: number;
+  color: number;
   age: number;
   hopTime: number;
   maxHops: number;
