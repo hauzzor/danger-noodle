@@ -394,6 +394,7 @@ export class World {
     }
     this.collide();
     this.reconcileTravellers();
+    this.attachFreeTravellers();
     updateTravellers(this, dt);
     this.updateEmitters(dt);
     this.updatePulses(dt);
@@ -411,6 +412,46 @@ export class World {
         this.makeFree(t, pos.x, pos.y);
       }
     }
+  }
+
+  // Free travellers that touch the structure become active (ride a beam).
+  private attachFreeTravellers(): void {
+    const contact = TRAVELLER_RADIUS + BEAM_RADIUS;
+    for (const t of this.travellers) {
+      if (t.attached) continue;
+      let best = -1;
+      let bestD = contact;
+      this.bonds.forEach((bond, i) => {
+        if (!bond.active) return;
+        const a = this.blobs[bond.a];
+        const b = this.blobs[bond.b];
+        if (!a || !b || a.removed || b.removed || a.held || b.held) return;
+        const cp = closestOnSegment(t.x, t.y, a.x, a.y, b.x, b.y);
+        const d = Math.hypot(t.x - cp.x, t.y - cp.y);
+        if (d < bestD) {
+          bestD = d;
+          best = i;
+        }
+      });
+      if (best >= 0) this.attachTravellerToBond(t, best);
+    }
+  }
+
+  private attachTravellerToBond(t: Traveller, bondIndex: number): void {
+    const bond = this.bonds[bondIndex];
+    if (!bond || !bond.active) return;
+    const forward = Math.random() < 0.5;
+    t.attached = true;
+    t.from = forward ? bond.a : bond.b;
+    t.to = forward ? bond.b : bond.a;
+    t.bond = bondIndex;
+    const from = this.blobs[t.from];
+    const to = this.blobs[t.to];
+    const len2 = (to.x - from.x) ** 2 + (to.y - from.y) ** 2 || 1e-9;
+    const proj = ((t.x - from.x) * (to.x - from.x) + (t.y - from.y) * (to.y - from.y)) / len2;
+    t.t = Math.min(Math.max(proj, 0), 0.999);
+    t.speed = 1.1 + Math.random() * 0.7;
+    t.recent = [];
   }
 
   private integrate(dt: number): void {
