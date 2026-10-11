@@ -18,7 +18,8 @@ export interface Blob {
   signalSpeed: number;
   maxHops: number;
   hopsInFlight: number;
-  color: number;
+  signalColor: number;
+  acceptColors: number[];
   contracting: boolean;
   contractTimer: number;
   contractAmount: number;

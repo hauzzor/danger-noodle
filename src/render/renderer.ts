@@ -1,5 +1,6 @@
 import { Camera } from "../engine/camera";
 import { groundY } from "../sim/terrain";
+import { signalCss } from "../sim/palette";
 import { BLOB_RADIUS } from "../sim/units";
 import type { World } from "../sim/world";
 import type { Blob, BlockType } from "../sim/types";
@@ -56,7 +57,7 @@ export class Renderer {
   }
 
   private hue(blob: Blob): number {
-    if (blob.type === "generator") return blob.color;
+    if (blob.type === "generator") return 2;
     if (blob.type === "contractor") return 205;
     return 142 + (((blob.id * 47) % 13) - 6);
   }
@@ -253,7 +254,7 @@ export class Renderer {
         ctx.globalAlpha = fade;
         ctx.beginPath();
         ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
-        ctx.fillStyle = `hsl(${pulse.color}, 82%, 62%)`;
+        ctx.fillStyle = signalCss(pulse.color);
         ctx.fill();
         ctx.globalAlpha = 1;
       }
@@ -280,7 +281,8 @@ export class Renderer {
       signalSpeed: 0,
       maxHops: 0,
       hopsInFlight: 0,
-      color: drag.type === "generator" ? 2 : 142,
+      signalColor: 0,
+      acceptColors: [],
       contracting: false,
       contractTimer: 0,
       contractAmount: 1,

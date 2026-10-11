@@ -209,6 +209,28 @@ body {
   font-size: 12px;
 }
 
+#ui .radial-palette {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  justify-content: flex-end;
+}
+
+#ui .swatch {
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  cursor: pointer;
+  outline: 1px solid rgba(0, 0, 0, 0.35);
+}
+
+#ui .swatch.selected {
+  border-color: #ffffff;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.5);
+}
+
 #ui .radial-row input[type="checkbox"] {
   width: 16px;
   height: 16px;

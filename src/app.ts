@@ -6,6 +6,7 @@ import { createOverlay, type Overlay } from "./ui/overlay";
 import { createRadial, type Radial, type RadialItem } from "./ui/radial";
 import { createWorld, createStarterCreature } from "./world/generator";
 import { createProgress, type Progress } from "./game/state";
+import { SIGNAL_PALETTE } from "./sim/palette";
 import { deserialize, exportSnapshot, importSnapshot, loadSlot, saveSlot, serialize } from "./persistence/save";
 import type { World } from "./sim/world";
 import type { Vec2 } from "./sim/types";
@@ -149,17 +150,25 @@ export class App {
         },
       });
       items.push({
-        kind: "slider",
-        label: "Colour",
-        value: blob.color,
-        min: 0,
-        max: 360,
-        step: 1,
+        kind: "palette",
+        label: "Signal",
+        colors: SIGNAL_PALETTE,
+        value: [blob.signalColor],
         onChange: (v) => {
-          blob.color = v;
+          if (v.length > 0) blob.signalColor = v[v.length - 1];
         },
       });
     } else if (blob.type === "contractor") {
+      items.push({
+        kind: "palette",
+        label: "Accept",
+        colors: SIGNAL_PALETTE,
+        value: [...blob.acceptColors],
+        multi: true,
+        onChange: (v) => {
+          blob.acceptColors = v;
+        },
+      });
       items.push({
         kind: "slider",
         label: "Contract to",

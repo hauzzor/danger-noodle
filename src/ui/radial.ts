@@ -1,7 +1,15 @@
 export type RadialItem =
   | { kind?: "button"; label: string; onClick: () => void }
   | { kind: "toggle"; label: string; value: boolean; onChange: (v: boolean) => void }
-  | { kind: "slider"; label: string; value: number; min: number; max: number; step: number; onChange: (v: number) => void };
+  | { kind: "slider"; label: string; value: number; min: number; max: number; step: number; onChange: (v: number) => void }
+  | {
+      kind: "palette";
+      label: string;
+      colors: { name: string; css: string }[];
+      value: number[];
+      multi?: boolean;
+      onChange: (v: number[]) => void;
+    };
 
 export interface Radial {
   open: (x: number, y: number, items: RadialItem[]) => void;
@@ -73,6 +81,28 @@ export function createRadial(root: HTMLElement): Radial {
           num.addEventListener("input", () => apply(Number(num.value)));
 
           wrap.append(range, num);
+          el.append(row(item.label, wrap));
+        } else if (item.kind === "palette") {
+          const wrap = document.createElement("div");
+          wrap.className = "radial-palette";
+          const apply = (next: number[]): void => {
+            [...wrap.children].forEach((node, i) => node.classList.toggle("selected", next.includes(i)));
+            item.onChange(next);
+          };
+          item.colors.forEach((c, i) => {
+            const sw = document.createElement("button");
+            sw.type = "button";
+            sw.className = "swatch";
+            sw.title = c.name;
+            sw.style.background = c.css;
+            if (item.value.includes(i)) sw.classList.add("selected");
+            sw.addEventListener("click", (ev) => {
+              ev.stopPropagation();
+              if (item.multi) apply(item.value.includes(i) ? item.value.filter((x) => x !== i) : [...item.value, i]);
+              else apply([i]);
+            });
+            wrap.append(sw);
+          });
           el.append(row(item.label, wrap));
         } else {
           const btn = document.createElement("button");

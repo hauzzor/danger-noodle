@@ -51,7 +51,8 @@ export class World {
       signalSpeed: 1 / HOP_TIME,
       maxHops: MAX_HOPS,
       hopsInFlight: 0,
-      color: type === "generator" ? 2 : 142,
+      signalColor: 0,
+      acceptColors: [],
       contracting: false,
       contractTimer: 0,
       contractAmount: 1,
@@ -543,7 +544,7 @@ export class World {
     this.pulses.push({
       id: this.nextPulse++,
       source: source.id,
-      color: source.color,
+      color: source.signalColor,
       age: 0,
       hopTime: 1 / speed,
       maxHops: reach,
@@ -585,16 +586,18 @@ export class World {
         if (pulse.age >= hops * pulse.hopTime) {
           pulse.delivered.add(node);
           const blob = this.blobs[node];
-          if (blob && !blob.removed) this.handleSignal(blob);
+          if (blob && !blob.removed) this.handleSignal(blob, pulse.color);
         }
       }
     }
   }
 
   // A delivered signal starts a contractor's contraction; while one is already
-  // running, further signals are ignored.
-  private handleSignal(blob: Blob): void {
+  // running, further signals are ignored. A contractor with a colour filter only
+  // reacts to accepted signal colours (empty filter = accept all).
+  private handleSignal(blob: Blob, color: number): void {
     if (blob.type !== "contractor" || blob.contracting) return;
+    if (blob.acceptColors.length > 0 && !blob.acceptColors.includes(color)) return;
     blob.contracting = true;
     blob.contractTimer = 0;
     blob.contractAmount = 1;

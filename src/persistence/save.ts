@@ -20,7 +20,8 @@ export interface Snapshot {
     emitDelay: number;
     signalSpeed: number;
     maxHops: number;
-    color: number;
+    signalColor: number;
+    acceptColors: number[];
     contractTo: number;
     contractTime: number;
     releaseTime: number;
@@ -40,7 +41,7 @@ export interface Snapshot {
 
 export function serialize(world: World, progress: Progress): Snapshot {
   return {
-    version: 9,
+    version: 10,
     timestamp: Date.now(),
     progress: { ...progress },
     time: world.time,
@@ -57,7 +58,8 @@ export function serialize(world: World, progress: Progress): Snapshot {
       emitDelay: b.emitDelay,
       signalSpeed: b.signalSpeed,
       maxHops: b.maxHops,
-      color: b.color,
+      signalColor: b.signalColor,
+      acceptColors: [...b.acceptColors],
       contractTo: b.contractTo,
       contractTime: b.contractTime,
       releaseTime: b.releaseTime,
@@ -92,7 +94,8 @@ export function deserialize(data: Snapshot): { world: World; progress: Progress 
     blob.emitDelay = bd.emitDelay ?? 0;
     blob.signalSpeed = bd.signalSpeed ?? 1 / HOP_TIME;
     blob.maxHops = bd.maxHops ?? MAX_HOPS;
-    blob.color = bd.color ?? (blob.type === "generator" ? 2 : 142);
+    blob.signalColor = bd.signalColor ?? 0;
+    blob.acceptColors = bd.acceptColors ?? [];
     blob.contractTo = bd.contractTo ?? 0.5;
     blob.contractTime = bd.contractTime ?? 1;
     blob.releaseTime = bd.releaseTime ?? 1;
