@@ -30,13 +30,16 @@ export function createStarterCreature(world: World): void {
     if (bond >= 0) world.spawnTravellerOnBond(bond, "basic");
   }
 
-  // One generator loose block rides the starter body from the start.
-  const genBond = world.randomActiveBond();
-  if (genBond >= 0) world.spawnTravellerOnBond(genBond, "generator");
-
-  // ...and one contractor, so signals can be wired up right away.
-  const conBond = world.randomActiveBond();
-  if (conBond >= 0) world.spawnTravellerOnBond(conBond, "contractor");
+  // Generators and contractors ride the starter body from the start, so signals
+  // and contraction can be wired up right away.
+  for (let i = 0; i < 2; i++) {
+    const bond = world.randomActiveBond();
+    if (bond >= 0) world.spawnTravellerOnBond(bond, "generator");
+  }
+  for (let i = 0; i < 5; i++) {
+    const bond = world.randomActiveBond();
+    if (bond >= 0) world.spawnTravellerOnBond(bond, "contractor");
+  }
 }
 
 export function createWorld(seed: number): World {
