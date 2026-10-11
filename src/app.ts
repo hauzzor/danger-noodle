@@ -128,7 +128,7 @@ export class App {
       });
       items.push({
         kind: "slider",
-        label: "Max hops",
+        label: "Hops (combined)",
         value: blob.maxHops,
         min: 1,
         max: 200,

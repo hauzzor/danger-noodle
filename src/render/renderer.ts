@@ -279,6 +279,7 @@ export class Renderer {
       emitTimer: 0,
       signalSpeed: 0,
       maxHops: 0,
+      hopsInFlight: 0,
       color: drag.type === "generator" ? 2 : 142,
       contracting: false,
       contractTimer: 0,
