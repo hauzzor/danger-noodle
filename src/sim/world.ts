@@ -111,6 +111,13 @@ export class World {
     return result.sort((p, q) => Math.hypot(p.x - x, p.y - y) - Math.hypot(q.x - x, q.y - y));
   }
 
+  // The beams a new block at (x, y) would actually form: the same list the
+  // build uses, capped by the per-block bond limit. Ghost preview and building
+  // must both go through this so they never disagree.
+  planBonds(x: number, y: number): Blob[] {
+    return this.previewCandidates(x, y).slice(0, this.maxBondsPerBlob);
+  }
+
   degree(b: Blob): number {
     return this.adj[b.id - 1]?.length ?? 0;
   }
@@ -150,7 +157,7 @@ export class World {
   }
 
   buildTravellerAt(t: Traveller, x: number, y: number): Blob | null {
-    const near = this.previewCandidates(x, y);
+    const near = this.planBonds(x, y);
     if (near.length === 0) {
       this.collectibles.push({
         id: this.newId(),
@@ -195,7 +202,7 @@ export class World {
     blob.px = x;
     blob.py = y;
     this.rebuildAdjacency();
-    const near = this.previewCandidates(x, y);
+    const near = this.planBonds(x, y);
     for (const o of near) {
       if (this.degree(blob) >= this.maxBondsPerBlob) break;
       this.addBond(blob, o);

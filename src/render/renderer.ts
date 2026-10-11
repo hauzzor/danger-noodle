@@ -216,7 +216,7 @@ export class Renderer {
       removed: false,
     };
 
-    for (const other of world.previewCandidates(drag.pos.x, drag.pos.y)) {
+    for (const other of world.planBonds(drag.pos.x, drag.pos.y)) {
       this.drawBeam(
         this.P(drag.pos.x, drag.pos.y),
         this.P(other.x, other.y),
