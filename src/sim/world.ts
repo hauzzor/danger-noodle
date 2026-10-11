@@ -50,7 +50,6 @@ export class World {
       emitDelay: 0,
       signalSpeed: 1 / HOP_TIME,
       maxHops: MAX_HOPS,
-      hopsInFlight: 0,
       signalColor: 0,
       acceptColors: [],
       contracting: false,
@@ -535,38 +534,26 @@ export class World {
     }
   }
 
-  // `maxHops` is the total hop budget shared by ALL of this generator's signals
-  // that are currently in flight. Each emission reaches as far as the remaining
-  // budget allows; the budget is returned when a signal dies out.
+  // `maxHops` is the maximum number of hops a single signal may spread.
   private emitSignal(source: Blob): void {
-    const cap = source.maxHops > 0 ? source.maxHops : MAX_HOPS;
-    const budget = cap - source.hopsInFlight;
-    if (budget <= 0) return;
+    const maxHops = source.maxHops > 0 ? source.maxHops : MAX_HOPS;
     const hopDist = new Map<number, number>();
     const start = source.id - 1;
     hopDist.set(start, 0);
     const queue = [start];
     let head = 0;
-    let reach = 0;
     while (head < queue.length) {
       const node = queue[head++];
       const d = hopDist.get(node)!;
-      if (d >= budget) continue;
+      if (d >= maxHops) continue;
       for (const n of this.neighbors(node)) {
         if (!hopDist.has(n.other)) {
           hopDist.set(n.other, d + 1);
-          if (d + 1 > reach) reach = d + 1;
           queue.push(n.other);
         }
       }
     }
-    if (reach === 0) return;
-    source.hopsInFlight += reach;
-    if (this.pulses.length > 200) {
-      const dropped = this.pulses.shift()!;
-      const s = this.blobs[dropped.source - 1];
-      if (s) s.hopsInFlight = Math.max(0, s.hopsInFlight - dropped.maxHops);
-    }
+    if (this.pulses.length > 200) this.pulses.shift();
     const speed = source.signalSpeed > 0 ? source.signalSpeed : 1 / HOP_TIME;
     this.pulses.push({
       id: this.nextPulse++,
@@ -574,7 +561,7 @@ export class World {
       color: source.signalColor,
       age: 0,
       hopTime: 1 / speed,
-      maxHops: reach,
+      maxHops,
       hopDist,
       delivered: new Set(),
     });
@@ -596,17 +583,8 @@ export class World {
   }
 
   private updatePulses(dt: number): void {
-    const kept: Pulse[] = [];
-    for (const pulse of this.pulses) {
-      pulse.age += dt;
-      if (pulse.age / pulse.hopTime <= pulse.maxHops + 1) {
-        kept.push(pulse);
-      } else {
-        const src = this.blobs[pulse.source - 1];
-        if (src) src.hopsInFlight = Math.max(0, src.hopsInFlight - pulse.maxHops);
-      }
-    }
-    this.pulses = kept;
+    for (const pulse of this.pulses) pulse.age += dt;
+    this.pulses = this.pulses.filter((p) => p.age / p.hopTime <= p.maxHops + 1);
     for (const pulse of this.pulses) {
       for (const [node, hops] of pulse.hopDist) {
         if (pulse.delivered.has(node)) continue;

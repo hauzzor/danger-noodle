@@ -282,7 +282,6 @@ export class Renderer {
       emitDelay: 0,
       signalSpeed: 0,
       maxHops: 0,
-      hopsInFlight: 0,
       signalColor: 0,
       acceptColors: [],
       contracting: false,
