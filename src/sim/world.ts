@@ -283,6 +283,18 @@ export class World {
     this.settleVelocities();
   }
 
+  // Take a block out of the structure but keep it as a loose traveller that
+  // falls and waits to be picked up (rather than deleting it).
+  disconnectBlob(id: number): void {
+    const b = this.blobs[id - 1];
+    if (!b || b.removed) return;
+    const type = b.type;
+    const x = b.x;
+    const y = b.y;
+    this.removeBlob(id);
+    this.addFreeTraveller(type, x, y);
+  }
+
   rebuildAdjacency(): void {
     this.adj = this.blobs.map(() => []);
     this.bonds.forEach((bond, i) => {

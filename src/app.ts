@@ -140,8 +140,8 @@ export class App {
     }
     items.push({
       kind: "button",
-      label: "Delete",
-      onClick: () => this.world.removeBlob(blob.id),
+      label: "Disconnect from structure",
+      onClick: () => this.world.disconnectBlob(blob.id),
     });
     this.radial.open(screen.x, screen.y, items);
   }
