@@ -14,7 +14,7 @@ export interface Blob {
   removed: boolean;
   emitOn: boolean;
   emitInterval: number;
-  emitTimer: number;
+  emitDelay: number;
   signalSpeed: number;
   maxHops: number;
   hopsInFlight: number;

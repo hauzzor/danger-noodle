@@ -276,7 +276,7 @@ export class Renderer {
       removed: false,
       emitOn: false,
       emitInterval: 1.5,
-      emitTimer: 0,
+      emitDelay: 0,
       signalSpeed: 0,
       maxHops: 0,
       hopsInFlight: 0,

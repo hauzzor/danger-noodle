@@ -17,7 +17,7 @@ export interface Snapshot {
     radius: number;
     emitOn: boolean;
     emitInterval: number;
-    emitTimer: number;
+    emitDelay: number;
     signalSpeed: number;
     maxHops: number;
     color: number;
@@ -40,7 +40,7 @@ export interface Snapshot {
 
 export function serialize(world: World, progress: Progress): Snapshot {
   return {
-    version: 8,
+    version: 9,
     timestamp: Date.now(),
     progress: { ...progress },
     time: world.time,
@@ -54,7 +54,7 @@ export function serialize(world: World, progress: Progress): Snapshot {
       radius: b.radius,
       emitOn: b.emitOn,
       emitInterval: b.emitInterval,
-      emitTimer: b.emitTimer,
+      emitDelay: b.emitDelay,
       signalSpeed: b.signalSpeed,
       maxHops: b.maxHops,
       color: b.color,
@@ -89,7 +89,7 @@ export function deserialize(data: Snapshot): { world: World; progress: Progress 
     blob.py = bd.py;
     blob.emitOn = bd.emitOn ?? false;
     blob.emitInterval = bd.emitInterval ?? 1.5;
-    blob.emitTimer = bd.emitTimer ?? 0;
+    blob.emitDelay = bd.emitDelay ?? 0;
     blob.signalSpeed = bd.signalSpeed ?? 1 / HOP_TIME;
     blob.maxHops = bd.maxHops ?? MAX_HOPS;
     blob.color = bd.color ?? (blob.type === "generator" ? 2 : 142);

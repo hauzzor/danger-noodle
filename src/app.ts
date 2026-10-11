@@ -117,6 +117,17 @@ export class App {
       });
       items.push({
         kind: "slider",
+        label: "Delay (s)",
+        value: blob.emitDelay,
+        min: 0,
+        max: 5,
+        step: 0.1,
+        onChange: (v) => {
+          blob.emitDelay = v;
+        },
+      });
+      items.push({
+        kind: "slider",
         label: "Signal speed",
         value: blob.signalSpeed,
         min: 1,

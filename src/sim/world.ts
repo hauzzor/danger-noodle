@@ -47,7 +47,7 @@ export class World {
       removed: false,
       emitOn: false,
       emitInterval: 1.5,
-      emitTimer: 0,
+      emitDelay: 0,
       signalSpeed: 1 / HOP_TIME,
       maxHops: MAX_HOPS,
       hopsInFlight: 0,
@@ -552,15 +552,18 @@ export class World {
     });
   }
 
+  // Emissions are scheduled on the global clock grid
+  //   t = emitDelay + k * emitInterval
+  // so generators with the same interval+delay fire at exactly the same time.
   private updateEmitters(dt: number): void {
+    const t1 = this.time;
+    const t0 = this.time - dt;
     for (const b of this.blobs) {
       if (b.removed || b.held) continue;
       if (b.type !== "generator" || !b.emitOn || b.emitInterval <= 0) continue;
-      b.emitTimer += dt;
-      while (b.emitTimer >= b.emitInterval) {
-        b.emitTimer -= b.emitInterval;
-        this.emitSignal(b);
-      }
+      const kStart = Math.max(0, Math.floor((t0 - b.emitDelay) / b.emitInterval) + 1);
+      const kEnd = Math.floor((t1 - b.emitDelay) / b.emitInterval);
+      for (let k = kStart; k <= kEnd; k++) this.emitSignal(b);
     }
   }
 
