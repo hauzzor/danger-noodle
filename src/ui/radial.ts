@@ -44,14 +44,36 @@ export function createRadial(root: HTMLElement): Radial {
           input.addEventListener("change", () => item.onChange(input.checked));
           el.append(row(item.label, input));
         } else if (item.kind === "slider") {
-          const input = document.createElement("input");
-          input.type = "range";
-          input.min = String(item.min);
-          input.max = String(item.max);
-          input.step = String(item.step);
-          input.value = String(item.value);
-          input.addEventListener("input", () => item.onChange(Number(input.value)));
-          el.append(row(item.label, input));
+          const wrap = document.createElement("div");
+          wrap.className = "radial-control";
+
+          const range = document.createElement("input");
+          range.type = "range";
+          range.min = String(item.min);
+          range.max = String(item.max);
+          range.step = String(item.step);
+          range.value = String(item.value);
+
+          const num = document.createElement("input");
+          num.type = "number";
+          num.className = "radial-number";
+          num.min = String(item.min);
+          num.max = String(item.max);
+          num.step = String(item.step);
+          num.value = String(item.value);
+
+          const apply = (raw: number): void => {
+            if (!Number.isFinite(raw)) return;
+            const v = Math.min(Math.max(raw, item.min), item.max);
+            range.value = String(v);
+            num.value = String(v);
+            item.onChange(v);
+          };
+          range.addEventListener("input", () => apply(Number(range.value)));
+          num.addEventListener("input", () => apply(Number(num.value)));
+
+          wrap.append(range, num);
+          el.append(row(item.label, wrap));
         } else {
           const btn = document.createElement("button");
           btn.className = "radial-item";
@@ -65,7 +87,7 @@ export function createRadial(root: HTMLElement): Radial {
         }
       }
       const pad = 8;
-      const w = 176;
+      const w = 208;
       const h = el.offsetHeight || items.length * 40 + pad * 2;
       const left = Math.min(Math.max(x + 16, pad), window.innerWidth - w - pad);
       const top = Math.min(Math.max(y - h / 2, pad), window.innerHeight - h - pad);

@@ -155,7 +155,7 @@ body {
   flex-direction: column;
   gap: 6px;
   padding: 8px;
-  width: 176px;
+  width: 208px;
   background: var(--panel);
   border: 1px solid var(--border);
   border-radius: 12px;
@@ -191,6 +191,22 @@ body {
 #ui .radial-row input[type="range"] {
   width: 84px;
   accent-color: var(--accent);
+}
+
+#ui .radial-control {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+#ui .radial-number {
+  width: 52px;
+  padding: 2px 4px;
+  background: #1b1e26;
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 12px;
 }
 
 #ui .radial-row input[type="checkbox"] {
