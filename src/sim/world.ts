@@ -118,6 +118,16 @@ export class World {
     return this.previewCandidates(x, y).slice(0, this.maxBondsPerBlob);
   }
 
+  // Resolve a list of block ids to live blocks, optionally excluding one.
+  resolveTargets(ids: number[], exclude?: Blob): Blob[] {
+    const out: Blob[] = [];
+    for (const id of ids) {
+      const b = this.getBlob(id);
+      if (b && b !== exclude) out.push(b);
+    }
+    return out;
+  }
+
   degree(b: Blob): number {
     return this.adj[b.id - 1]?.length ?? 0;
   }
@@ -156,8 +166,9 @@ export class World {
     this.travellers = this.travellers.filter((x) => x !== t);
   }
 
-  buildTravellerAt(t: Traveller, x: number, y: number): Blob | null {
-    const near = this.planBonds(x, y);
+  buildTravellerAt(t: Traveller, x: number, y: number, planIds?: number[]): Blob | null {
+    const forced = planIds !== undefined;
+    const near = planIds ? this.resolveTargets(planIds) : this.planBonds(x, y);
     if (near.length === 0) {
       this.collectibles.push({
         id: this.newId(),
@@ -175,7 +186,8 @@ export class World {
     const blob = this.addBlob(t.type, x, y, BLOB_RADIUS);
     for (const o of near) {
       if (this.degree(blob) >= this.maxBondsPerBlob) break;
-      this.addBond(blob, o);
+      if (forced) this.restoreBond(blob, o, Math.hypot(o.x - blob.x, o.y - blob.y), 1);
+      else this.addBond(blob, o);
     }
     this.removeTraveller(t);
     this.settleVelocities();
@@ -194,18 +206,22 @@ export class World {
     this.settleVelocities();
   }
 
-  // Place a held block at (x, y) and re-build every legal beam there.
-  attachBlob(blob: Blob, x: number, y: number): void {
-    blob.held = false;
+  // Place a held block at (x, y) and (re)build every beam shown for it. The
+  // plan is computed while the block is still held so it never blocks its own
+  // new beams.
+  attachBlob(blob: Blob, x: number, y: number, planIds?: number[]): void {
+    const forced = planIds !== undefined;
     blob.x = x;
     blob.y = y;
     blob.px = x;
     blob.py = y;
+    const near = planIds ? this.resolveTargets(planIds, blob) : this.planBonds(x, y);
+    blob.held = false;
     this.rebuildAdjacency();
-    const near = this.planBonds(x, y);
     for (const o of near) {
       if (this.degree(blob) >= this.maxBondsPerBlob) break;
-      this.addBond(blob, o);
+      if (forced) this.restoreBond(blob, o, Math.hypot(o.x - blob.x, o.y - blob.y), 1);
+      else this.addBond(blob, o);
     }
     this.settleVelocities();
   }

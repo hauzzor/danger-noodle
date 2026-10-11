@@ -216,7 +216,9 @@ export class Renderer {
       removed: false,
     };
 
-    for (const other of world.planBonds(drag.pos.x, drag.pos.y)) {
+    for (const id of drag.plan) {
+      const other = world.getBlob(id);
+      if (!other) continue;
       this.drawBeam(
         this.P(drag.pos.x, drag.pos.y),
         this.P(other.x, other.y),

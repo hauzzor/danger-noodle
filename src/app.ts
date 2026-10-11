@@ -68,6 +68,7 @@ export class App {
   }
 
   private render(): void {
+    this.interaction.refreshDragPlan();
     this.renderer.draw(this.world, this.interaction.dragRender);
     this.statusTick += 1;
     if (this.statusTick % 10 === 0) {

@@ -23,13 +23,16 @@ export interface DragRender {
   pos: Vec2;
   type: BlockType;
   id: number;
+  // Block ids that would be bonded if placed here. The ghost draws exactly
+  // these, and the drop builds exactly these ("build what was shown").
+  plan: number[];
 }
 
 const TRAVELLER_PICK = units(0.24);
 const BLOB_PICK = units(0.6);
 const MOVE_THRESHOLD = 6;
 
-type DragState = { kind: "blob" | "traveller"; blob?: Blob; traveller?: Traveller; pos: Vec2 };
+type DragState = { kind: "blob" | "traveller"; blob?: Blob; traveller?: Traveller; pos: Vec2; origin?: number[] };
 
 export class Interaction {
   dragRender: DragRender | null = null;
@@ -53,6 +56,17 @@ export class Interaction {
   private local(e: PointerEvent): Vec2 {
     const rect = this.o.canvas.getBoundingClientRect();
     return { x: e.clientX - rect.left, y: e.clientY - rect.top };
+  }
+
+  private planFor(pos: Vec2): number[] {
+    return this.o.getWorld().planBonds(pos.x, pos.y).map((b) => b.id);
+  }
+
+  // Recompute the shown plan from the current world so a drop builds exactly
+  // the beams the player can see. Called once per rendered frame.
+  refreshDragPlan(): void {
+    if (!this.drag || !this.dragRender) return;
+    this.dragRender.plan = this.planFor(this.drag.pos);
   }
 
   private pick(wp: Vec2): Hit {
@@ -106,12 +120,14 @@ export class Interaction {
       // Grab immediately: a structure block is detached into the player's hand
       // (ghost mode) on pointer-down, before any drag movement.
       if (hit.kind === "blob") {
-        this.o.getWorld().detachBlob(hit.blob);
-        this.drag = { kind: "blob", blob: hit.blob, pos: wp };
-        this.dragRender = { kind: "blob", pos: wp, type: hit.blob.type, id: hit.blob.id };
+        const world = this.o.getWorld();
+        const origin = world.neighbors(hit.blob.id - 1).map((n) => world.blobs[n.other].id);
+        world.detachBlob(hit.blob);
+        this.drag = { kind: "blob", blob: hit.blob, pos: wp, origin };
+        this.dragRender = { kind: "blob", pos: wp, type: hit.blob.type, id: hit.blob.id, plan: this.planFor(wp) };
       } else if (hit.kind === "traveller") {
         this.drag = { kind: "traveller", traveller: hit.traveller, pos: wp };
-        this.dragRender = { kind: "traveller", pos: wp, type: hit.traveller.type, id: hit.traveller.id };
+        this.dragRender = { kind: "traveller", pos: wp, type: hit.traveller.type, id: hit.traveller.id, plan: this.planFor(wp) };
       }
     }
   };
@@ -143,6 +159,7 @@ export class Interaction {
           pos: this.drag.pos,
           type: this.dragType(),
           id: this.drag.blob?.id ?? this.drag.traveller?.id ?? 0,
+          plan: this.planFor(this.drag.pos),
         };
       } else {
         if (this.down.moved) this.panning = true;
@@ -158,17 +175,18 @@ export class Interaction {
     if (this.pointers.size < 2) this.lastPinch = 0;
 
     const moved = this.down?.moved ?? false;
+    const plan = this.dragRender?.plan ?? [];
     if (this.drag) {
       const world = this.o.getWorld();
       if (this.drag.kind === "traveller" && this.drag.traveller) {
-        if (moved) world.buildTravellerAt(this.drag.traveller, this.drag.pos.x, this.drag.pos.y);
+        if (moved) world.buildTravellerAt(this.drag.traveller, this.drag.pos.x, this.drag.pos.y, plan);
       } else if (this.drag.kind === "blob" && this.drag.blob) {
         const blob = this.drag.blob;
         if (moved) {
-          world.attachBlob(blob, this.drag.pos.x, this.drag.pos.y);
+          world.attachBlob(blob, this.drag.pos.x, this.drag.pos.y, plan);
         } else {
-          // A plain click: put the block back where it was and open its menu.
-          world.attachBlob(blob, blob.x, blob.y);
+          // A plain click: put the block back exactly where it was and open its menu.
+          world.attachBlob(blob, blob.x, blob.y, this.drag.origin);
           this.o.onBlobTap(blob, p);
         }
       }
