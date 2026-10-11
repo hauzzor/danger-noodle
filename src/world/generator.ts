@@ -1,9 +1,7 @@
-import { mulberry32 } from "../engine/rng";
-import { groundY } from "../sim/terrain";
 import type { BlockType } from "../sim/types";
 import { World } from "../sim/world";
 
-const SPAWN = { x: -1.8, y: -10 };
+const SPAWN = { x: 0, y: 0 };
 const BODY_POINTS: [number, number][] = [
   [0, 0],
   [2.2, 0],
@@ -25,41 +23,23 @@ export function createStarterCreature(world: World): void {
   const ids = BODY_POINTS.map(([x, y]) => world.addBlob("basic", x + SPAWN.x, y + SPAWN.y));
   for (const [a, b] of BODY_BONDS) world.addBond(ids[a], ids[b]);
 
-  for (let i = 0; i < 6; i++) {
-    const bond = world.randomActiveBond();
-    if (bond >= 0) world.spawnTravellerOnBond(bond, "basic");
-  }
-
-  // Generators and contractors ride the starter body from the start (active
-  // travellers on the structure), so signals and contraction can be wired up
-  // right away.
-  for (let i = 0; i < 3; i++) {
-    const bond = world.randomActiveBond();
-    if (bond >= 0) world.spawnTravellerOnBond(bond, "generator");
-  }
-  for (let i = 0; i < 6; i++) {
-    const bond = world.randomActiveBond();
-    if (bond >= 0) world.spawnTravellerOnBond(bond, "contractor");
-  }
-  for (let i = 0; i < 2; i++) {
-    const bond = world.randomActiveBond();
-    if (bond >= 0) world.spawnTravellerOnBond(bond, "grabber");
+  const riders: [BlockType, number][] = [
+    ["basic", 6],
+    ["generator", 3],
+    ["contractor", 6],
+    ["grabber", 2],
+  ];
+  for (const [type, count] of riders) {
+    for (let i = 0; i < count; i++) {
+      const bond = world.randomActiveBond();
+      if (bond >= 0) world.spawnTravellerOnBond(bond, type);
+    }
   }
 }
 
 export function createWorld(seed: number): World {
   const world = new World();
-  const rand = mulberry32(seed);
-
-  let x = 8;
-  while (x < 600) {
-    const cy = groundY(x) - 1.0;
-    const r = rand();
-    const type: BlockType = r < 0.15 ? "generator" : r < 0.3 ? "contractor" : r < 0.45 ? "grabber" : "basic";
-    world.addFreeTraveller(type, x, cy);
-    x += 16 + rand() * 24;
-  }
-
+  world.seed = seed;
   createStarterCreature(world);
   return world;
 }

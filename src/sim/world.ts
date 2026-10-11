@@ -1,11 +1,14 @@
-import { groundY } from "./terrain";
 import { updateTravellers } from "./travel";
+import { mulberry32 } from "../engine/rng";
 import { closestOnSegment, segmentsCross, segSegClosest } from "./geometry";
 import { BEAM_RADIUS, BLOB_RADIUS, MAX_BOND_DIST, MIN_BOND_DIST, TRAVELLER_RADIUS } from "./units";
 import type { Blob, BlockType, Bond, Neighbor, Pulse, Traveller, Vec2 } from "./types";
 
 export const HOP_TIME = 0.12;
 export const MAX_HOPS = 42;
+export const CHUNK = 30;
+// Gentle ambient flow strength (units/s^2) for the floating, gravity-free world.
+const DRIFT = 2.2;
 
 export class World {
   blobs: Blob[] = [];
@@ -13,11 +16,11 @@ export class World {
   travellers: Traveller[] = [];
   pulses: Pulse[] = [];
   time = 0;
+  seed = 1;
 
-  gravity = 40;
-  damping = 0.99;
+  gravity = 0;
+  damping = 0.995;
   iterations = 4;
-  groundFriction = 0.5;
   maxBondsPerBlob = 6;
   // Beams are springs, not rigid rods: this is the fraction of the stretch
   // corrected per solver pass. Below 1 the length can drift from `rest`
@@ -425,7 +428,6 @@ export class World {
       this.solveCollisions();
       this.solveGrabbers();
     }
-    this.collide();
     this.reconcileTravellers();
     this.attachFreeTravellers();
     updateTravellers(this, dt);
@@ -514,23 +516,24 @@ export class World {
 
   private integrate(dt: number): void {
     const dt2 = dt * dt;
+    const t = this.time;
     for (const b of this.blobs) {
       if (b.removed || b.held) continue;
       const vx = (b.x - b.px) * this.damping;
       const vy = (b.y - b.py) * this.damping;
       b.px = b.x;
       b.py = b.y;
-      b.x += vx;
-      b.y += vy + this.gravity * dt2;
+      b.x += vx + Math.sin(b.y * 0.12 + t * 0.4) * DRIFT * dt2;
+      b.y += vy + Math.cos(b.x * 0.1 + t * 0.33) * DRIFT * dt2;
     }
-    for (const t of this.travellers) {
-      if (t.attached) continue;
-      const vx = (t.x - t.px) * this.damping;
-      const vy = (t.y - t.py) * this.damping;
-      t.px = t.x;
-      t.py = t.y;
-      t.x += vx;
-      t.y += vy + this.gravity * dt2;
+    for (const tr of this.travellers) {
+      if (tr.attached) continue;
+      const vx = (tr.x - tr.px) * this.damping;
+      const vy = (tr.y - tr.py) * this.damping;
+      tr.px = tr.x;
+      tr.py = tr.y;
+      tr.x += vx + Math.sin(tr.y * 0.12 + t * 0.4) * DRIFT * dt2;
+      tr.y += vy + Math.cos(tr.x * 0.1 + t * 0.33) * DRIFT * dt2;
     }
   }
 
@@ -761,40 +764,54 @@ export class World {
     }
   }
 
-  private collideCircle(x: number, y: number, r: number): { x: number; y: number; onGround: boolean } {
-    let ny = y;
-    let onGround = false;
-    const floor = groundY(x) - r;
-    if (ny > floor) {
-      ny = floor;
-      onGround = true;
+  // Procedurally generate loose blocks for any not-yet-populated chunk in the
+  // given world-space rectangle. Deterministic per (seed, chunk), so the field
+  // is stable; a chunk that already holds a block or traveller is skipped.
+  ensureChunks(minX: number, minY: number, maxX: number, maxY: number): void {
+    const cx0 = Math.floor(minX / CHUNK);
+    const cx1 = Math.floor(maxX / CHUNK);
+    const cy0 = Math.floor(minY / CHUNK);
+    const cy1 = Math.floor(maxY / CHUNK);
+    for (let cy = cy0; cy <= cy1; cy++) {
+      for (let cx = cx0; cx <= cx1; cx++) {
+        if (this.chunkOccupied(cx, cy)) continue;
+        this.generateChunk(cx, cy);
+      }
     }
-    return { x, y: ny, onGround };
   }
 
-  private collide(): void {
+  private chunkOccupied(cx: number, cy: number): boolean {
+    const x0 = cx * CHUNK;
+    const y0 = cy * CHUNK;
+    const x1 = x0 + CHUNK;
+    const y1 = y0 + CHUNK;
     for (const b of this.blobs) {
-      if (b.removed || b.held) continue;
-      const res = this.collideCircle(b.x, b.y, b.radius);
-      b.onGround = res.onGround;
-      if (res.y !== b.y || res.x !== b.x) {
-        if (res.onGround) {
-          const vx = b.x - b.px;
-          b.px = b.x - vx * this.groundFriction;
-          b.py = res.y;
-        }
-        b.y = res.y;
-      }
+      if (b.removed) continue;
+      if (b.x >= x0 && b.x < x1 && b.y >= y0 && b.y < y1) return true;
     }
     for (const t of this.travellers) {
       if (t.attached) continue;
-      const res = this.collideCircle(t.x, t.y, t.radius);
-      if (res.onGround) {
-        const vx = t.x - t.px;
-        t.px = t.x - vx * this.groundFriction;
-        t.py = res.y;
-      }
-      t.y = res.y;
+      if (t.x >= x0 && t.x < x1 && t.y >= y0 && t.y < y1) return true;
+    }
+    return false;
+  }
+
+  private generateChunk(cx: number, cy: number): void {
+    const rand = mulberry32(chunkHash(this.seed, cx, cy));
+    const count = Math.floor(rand() * 3); // 0..2
+    for (let i = 0; i < count; i++) {
+      const x = (cx + rand()) * CHUNK;
+      const y = (cy + rand()) * CHUNK;
+      const r = rand();
+      const type: BlockType = r < 0.15 ? "generator" : r < 0.3 ? "contractor" : r < 0.45 ? "grabber" : "basic";
+      this.addFreeTraveller(type, x, y);
     }
   }
+}
+
+function chunkHash(seed: number, cx: number, cy: number): number {
+  let h = (seed ^ Math.imul(cx, 0x9e3779b1) ^ Math.imul(cy, 0x85ebca6b)) | 0;
+  h = Math.imul(h ^ (h >>> 15), 0x2c1b3c6d);
+  h ^= h >>> 12;
+  return h >>> 0;
 }

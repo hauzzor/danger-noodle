@@ -1,5 +1,4 @@
 import { Camera } from "../engine/camera";
-import { groundY } from "../sim/terrain";
 import { signalCss } from "../sim/palette";
 import { BLOB_RADIUS } from "../sim/units";
 import type { World } from "../sim/world";
@@ -9,9 +8,6 @@ import type { DragRender } from "../ui/interaction";
 const BG_TOP = "#103a22";
 const BG_MID = "#0a2718";
 const BG_BOTTOM = "#05160d";
-const GROUND_TOP = "#2f7046";
-const GROUND_BOTTOM = "#0f331f";
-const GROUND_EDGE = "#4aa468";
 
 export class Renderer {
   private ctx: CanvasRenderingContext2D;
@@ -42,7 +38,6 @@ export class Renderer {
     ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
 
     this.drawBackground();
-    this.drawGround();
     this.drawBonds(world);
     this.drawBlobs(world);
     this.drawTravellers(world);
@@ -75,37 +70,30 @@ export class Renderer {
     g.addColorStop(1, BG_BOTTOM);
     ctx.fillStyle = g;
     ctx.fillRect(0, 0, camera.vw, camera.vh);
-  }
 
-  private drawGround(): void {
-    const { ctx, camera } = this;
+    // Procedural motes in world space, so the field parallaxes as you pan.
     const start = camera.s2w(0, 0);
     const end = camera.s2w(camera.vw, camera.vh);
-    ctx.beginPath();
-    let first = true;
-    const stepW = 1 / camera.zoom;
-    for (let x = start.x; x <= end.x; x += stepW) {
-      const p = this.P(x, groundY(x));
-      if (first) {
-        ctx.moveTo(p.x, p.y);
-        first = false;
-      } else {
-        ctx.lineTo(p.x, p.y);
+    const step = 8;
+    const x0 = Math.floor(start.x / step);
+    const x1 = Math.ceil(end.x / step);
+    const y0 = Math.floor(start.y / step);
+    const y1 = Math.ceil(end.y / step);
+    for (let gy = y0; gy <= y1; gy++) {
+      for (let gx = x0; gx <= x1; gx++) {
+        const h = hash2(gx, gy);
+        const a = ((h >>> 8) & 255) / 255;
+        if (a < 0.5) continue;
+        const px = (gx + (h & 255) / 255) * step;
+        const py = (gy + ((h >>> 16) & 255) / 255) * step;
+        const p = this.P(px, py);
+        const r = Math.max(0.6, camera.zoom * 0.03) * (0.5 + a);
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(120, 220, 160, ${0.03 + a * 0.05})`;
+        ctx.fill();
       }
     }
-    const bl = this.P(start.x, end.y);
-    const br = this.P(end.x, end.y);
-    ctx.lineTo(br.x, br.y);
-    ctx.lineTo(bl.x, bl.y);
-    ctx.closePath();
-    const g = ctx.createLinearGradient(0, this.P(0, 0).y, 0, this.P(0, end.y).y);
-    g.addColorStop(0, GROUND_TOP);
-    g.addColorStop(1, GROUND_BOTTOM);
-    ctx.fillStyle = g;
-    ctx.fill();
-    ctx.strokeStyle = GROUND_EDGE;
-    ctx.lineWidth = Math.max(2, camera.zoom * 0.06);
-    ctx.stroke();
   }
 
   private drawBeam(pa: { x: number; y: number }, pb: { x: number; y: number }, colorA: string, colorB: string, alpha = 1): void {
@@ -321,4 +309,11 @@ export class Renderer {
     ctx.stroke();
     ctx.setLineDash([]);
   }
+}
+
+function hash2(x: number, y: number): number {
+  let h = (Math.imul(x, 0x27d4eb2d) ^ Math.imul(y, 0x165667b1)) | 0;
+  h = Math.imul(h ^ (h >>> 15), 0x2c1b3c6d);
+  h ^= h >>> 12;
+  return h >>> 0;
 }

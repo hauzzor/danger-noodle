@@ -86,6 +86,7 @@ export function serialize(world: World, progress: Progress): Snapshot {
 
 export function deserialize(data: Snapshot): { world: World; progress: Progress } {
   const world = new World();
+  world.seed = data.progress?.seed ?? 1;
   world.time = data.time ?? 0;
 
   const idMap = new Map<number, number>();

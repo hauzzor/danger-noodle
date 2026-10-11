@@ -83,6 +83,9 @@ export class App {
   }
 
   private render(): void {
+    const start = this.camera.s2w(0, 0);
+    const end = this.camera.s2w(this.camera.vw, this.camera.vh);
+    this.world.ensureChunks(start.x - 40, start.y - 40, end.x + 40, end.y + 40);
     this.interaction.refreshDragPlan();
     this.renderer.draw(this.world, this.interaction.dragRender);
     this.statusTick += 1;
@@ -281,7 +284,7 @@ export class App {
 
   private resetView(): void {
     this.camera.x = 0;
-    this.camera.y = -8;
+    this.camera.y = 0;
     this.camera.zoom = 20;
   }
 

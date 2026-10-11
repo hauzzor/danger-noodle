@@ -5,7 +5,7 @@ export interface Vec2 {
 
 export class Camera {
   x = 0;
-  y = -8;
+  y = 0;
   zoom = 20;
   minZoom = 4;
   maxZoom = 100;
