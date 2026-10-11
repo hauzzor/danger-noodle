@@ -126,6 +126,17 @@ export class App {
           blob.signalSpeed = v;
         },
       });
+      items.push({
+        kind: "slider",
+        label: "Max hops",
+        value: blob.maxHops,
+        min: 1,
+        max: 200,
+        step: 1,
+        onChange: (v) => {
+          blob.maxHops = v;
+        },
+      });
     }
     items.push({
       kind: "button",

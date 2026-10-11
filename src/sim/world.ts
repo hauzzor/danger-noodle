@@ -45,6 +45,7 @@ export class World {
       emitInterval: 1.5,
       emitTimer: 0,
       signalSpeed: 1 / HOP_TIME,
+      maxHops: MAX_HOPS,
     };
     this.blobs.push(blob);
     this.rebuildAdjacency();
@@ -478,6 +479,7 @@ export class World {
   }
 
   private emitSignal(source: Blob): void {
+    const maxHops = source.maxHops > 0 ? source.maxHops : MAX_HOPS;
     const hopDist = new Map<number, number>();
     const start = source.id - 1;
     hopDist.set(start, 0);
@@ -486,7 +488,7 @@ export class World {
     while (head < queue.length) {
       const node = queue[head++];
       const d = hopDist.get(node)!;
-      if (d >= MAX_HOPS) continue;
+      if (d >= maxHops) continue;
       for (const n of this.neighbors(node)) {
         if (!hopDist.has(n.other)) {
           hopDist.set(n.other, d + 1);
@@ -501,7 +503,7 @@ export class World {
       source: source.id,
       age: 0,
       hopTime: 1 / speed,
-      maxHops: MAX_HOPS,
+      maxHops,
       hopDist,
       delivered: new Set(),
     });
