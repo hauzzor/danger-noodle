@@ -9,7 +9,7 @@ import { createProgress, type Progress } from "./game/state";
 import { SIGNAL_PALETTE } from "./sim/palette";
 import { deserialize, exportSnapshot, importSnapshot, loadSlot, saveSlot, serialize } from "./persistence/save";
 import type { World } from "./sim/world";
-import type { Vec2 } from "./sim/types";
+import type { Blob, Vec2 } from "./sim/types";
 
 export class App {
   private world: World;
@@ -23,6 +23,7 @@ export class App {
   private statusTick = 0;
   private replaceOn = true;
   private menuOn = true;
+  private applyAll = false;
 
   constructor(canvas: HTMLCanvasElement, uiRoot: HTMLElement) {
     this.progress = createProgress(Math.floor(Math.random() * 1e9));
@@ -96,13 +97,21 @@ export class App {
     const blob = this.world.getBlob(blobId);
     if (!blob) return;
     const items: RadialItem[] = [];
+    items.push({
+      kind: "toggle",
+      label: `Apply to all ${blob.type}s`,
+      value: this.applyAll,
+      onChange: (v) => {
+        this.applyAll = v;
+      },
+    });
     if (blob.type === "generator") {
       items.push({
         kind: "toggle",
         label: "Emit",
         value: blob.emitOn,
         onChange: (v) => {
-          blob.emitOn = v;
+          this.setValue(blob, "emitOn", v);
         },
       });
       items.push({
@@ -113,7 +122,7 @@ export class App {
         max: 5,
         step: 0.1,
         onChange: (v) => {
-          blob.emitInterval = v;
+          this.setValue(blob, "emitInterval", v);
         },
       });
       items.push({
@@ -124,7 +133,7 @@ export class App {
         max: 5,
         step: 0.1,
         onChange: (v) => {
-          blob.emitDelay = v;
+          this.setValue(blob, "emitDelay", v);
         },
       });
       items.push({
@@ -135,7 +144,7 @@ export class App {
         max: 30,
         step: 1,
         onChange: (v) => {
-          blob.signalSpeed = v;
+          this.setValue(blob, "signalSpeed", v);
         },
       });
       items.push({
@@ -146,7 +155,7 @@ export class App {
         max: 200,
         step: 1,
         onChange: (v) => {
-          blob.maxHops = v;
+          this.setValue(blob, "maxHops", v);
         },
       });
       items.push({
@@ -155,7 +164,7 @@ export class App {
         colors: SIGNAL_PALETTE,
         value: [blob.signalColor],
         onChange: (v) => {
-          if (v.length > 0) blob.signalColor = v[v.length - 1];
+          if (v.length > 0) this.setValue(blob, "signalColor", v[v.length - 1]);
         },
       });
     } else if (blob.type === "contractor") {
@@ -166,7 +175,7 @@ export class App {
         value: [...blob.acceptColors],
         multi: true,
         onChange: (v) => {
-          blob.acceptColors = v;
+          this.setValue(blob, "acceptColors", v);
         },
       });
       items.push({
@@ -177,7 +186,7 @@ export class App {
         max: 1,
         step: 0.05,
         onChange: (v) => {
-          blob.contractTo = v;
+          this.setValue(blob, "contractTo", v);
         },
       });
       items.push({
@@ -188,7 +197,7 @@ export class App {
         max: 5,
         step: 0.1,
         onChange: (v) => {
-          blob.contractTime = v;
+          this.setValue(blob, "contractTime", v);
         },
       });
       items.push({
@@ -199,7 +208,7 @@ export class App {
         max: 5,
         step: 0.1,
         onChange: (v) => {
-          blob.releaseTime = v;
+          this.setValue(blob, "releaseTime", v);
         },
       });
     }
@@ -209,6 +218,15 @@ export class App {
       onClick: () => this.world.disconnectBlob(blob.id),
     });
     this.radial.open(screen.x, screen.y, items);
+  }
+
+  // Set a context-menu value on the block. When "Apply to all" is on, the same
+  // value is copied to every block of the same type in the structure.
+  private setValue(blob: Blob, key: keyof Blob, value: number | boolean | number[]): void {
+    const targets = this.applyAll ? this.world.activeBlobs().filter((b) => b.type === blob.type) : [blob];
+    for (const b of targets) {
+      (b as unknown as Record<string, unknown>)[key] = Array.isArray(value) ? [...value] : value;
+    }
   }
 
   private regenerate(): void {
