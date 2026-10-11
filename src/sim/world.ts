@@ -19,6 +19,10 @@ export class World {
   iterations = 4;
   groundFriction = 0.5;
   maxBondsPerBlob = 6;
+  // Beams are springs, not rigid rods: this is the fraction of the stretch
+  // corrected per solver pass. Below 1 the length can drift from `rest`
+  // (elongate/shorten) and springs back. Lower = softer/springier.
+  bondStiffness = 0.15;
 
   private adj: Neighbor[][] = [];
   private nextId = 1;
@@ -557,7 +561,7 @@ export class World {
       const dist = Math.hypot(dx, dy) || 1e-6;
       const total = a.invMass + b.invMass;
       if (total === 0) continue;
-      const diff = ((dist - bond.rest) / dist) * bond.stiffness;
+      const diff = ((dist - bond.rest) / dist) * bond.stiffness * this.bondStiffness;
       const ax = (dx * diff * a.invMass) / total;
       const ay = (dy * diff * a.invMass) / total;
       const bx = (dx * diff * b.invMass) / total;
