@@ -4,12 +4,11 @@ import { Renderer } from "./render/renderer";
 import { Interaction } from "./ui/interaction";
 import { createOverlay, type Overlay } from "./ui/overlay";
 import { createRadial, type Radial } from "./ui/radial";
-import { createProperties, type Properties } from "./ui/properties";
 import { createWorld, createStarterCreature } from "./world/generator";
-import { createProgress, grantReward, setGoal, type Progress } from "./game/state";
+import { createProgress, type Progress } from "./game/state";
 import { deserialize, exportSnapshot, importSnapshot, loadSlot, saveSlot, serialize } from "./persistence/save";
 import type { World } from "./sim/world";
-import type { ActionKind, Rule, Vec2 } from "./sim/types";
+import type { Vec2 } from "./sim/types";
 
 export class App {
   private world: World;
@@ -18,7 +17,6 @@ export class App {
   private readonly renderer: Renderer;
   private readonly overlay: Overlay;
   private readonly radial: Radial;
-  private readonly properties: Properties;
   private readonly interaction: Interaction;
   private readonly loop: GameLoop;
   private statusTick = 0;
@@ -26,7 +24,6 @@ export class App {
   constructor(canvas: HTMLCanvasElement, uiRoot: HTMLElement) {
     this.progress = createProgress(Math.floor(Math.random() * 1e9));
     this.world = createWorld(this.progress.seed);
-    setGoal(this.world, 0);
 
     this.renderer = new Renderer(canvas, this.camera);
 
@@ -49,68 +46,41 @@ export class App {
       },
     });
     this.radial = createRadial(uiRoot);
-    this.properties = createProperties(uiRoot);
 
     this.interaction = new Interaction({
       canvas,
       camera: this.camera,
       getWorld: () => this.world,
       onBlobTap: (blob, screen) => this.openBlobMenu(blob.id, screen),
-      uiOpen: () => this.radial.isOpen() || this.properties.isOpen(),
-      onChange: () => this.properties.refresh(),
+      uiOpen: () => this.radial.isOpen(),
+      onDismissUi: () => this.radial.close(),
+      onChange: () => {},
     });
   }
 
   start(): void {
     this.loop.start();
+    this.overlay.toast("Drag a loose block onto the body to build");
   }
 
   private update(dt: number): void {
     this.world.step(dt);
-    if (this.world.goalReached) {
-      this.progress.level += 1;
-      grantReward(this.world);
-      setGoal(this.world, this.progress.level);
-      this.overlay.toast(`Goal reached! Level ${this.progress.level} — new parts granted`);
-    }
   }
 
   private render(): void {
     this.renderer.draw(this.world, this.interaction.dragRender);
     this.statusTick += 1;
     if (this.statusTick % 10 === 0) {
-      const dist = this.nearestDistance();
       this.overlay.setStatus(
-        `Level ${this.progress.level} · goal ${dist.toFixed(0)}u · ${this.world.activeBlobs().length} blocks`,
+        `${this.world.activeBlobs().length} blocks · ${this.world.travellers.length} loose`,
       );
     }
-  }
-
-  private nearestDistance(): number {
-    let best = Infinity;
-    for (const b of this.world.activeBlobs()) {
-      best = Math.min(best, Math.hypot(b.x - this.world.goal.x, b.y - this.world.goal.y));
-    }
-    return best === Infinity ? 0 : best;
   }
 
   private openBlobMenu(blobId: number, screen: { x: number; y: number }): void {
     const blob = this.world.getBlob(blobId);
     if (!blob) return;
     this.radial.open(screen.x, screen.y, [
-      {
-        label: "Properties",
-        onClick: () => {
-          this.properties.open(blob, {
-            onChange: () => {},
-            onDelete: () => {
-              this.world.removeBlob(blob.id);
-              this.properties.close();
-            },
-            onClose: () => this.properties.close(),
-          });
-        },
-      },
       {
         label: "Delete",
         onClick: () => this.world.removeBlob(blob.id),
@@ -121,7 +91,6 @@ export class App {
   private regenerate(): void {
     this.progress = createProgress(Math.floor(Math.random() * 1e9));
     this.world = createWorld(this.progress.seed);
-    setGoal(this.world, 0);
     this.resetView();
     this.overlay.toast("New world generated");
   }
@@ -154,7 +123,6 @@ export class App {
     const restored = deserialize(data);
     this.world = restored.world;
     this.progress = restored.progress;
-    setGoal(this.world, this.progress.level);
     this.resetView();
     this.overlay.toast("Loaded slot 1");
   }
@@ -184,35 +152,7 @@ export class App {
         bonds: this.world.bonds.filter((b) => b.active).length,
         travellers: this.world.travellers.length,
         collectibles: this.world.collectibles.length,
-        pulses: this.world.pulses.length,
-        goalReached: this.world.goalReached,
-        level: this.progress.level,
-        goal: { ...this.world.goal },
       }),
-      addRule: (
-        blobId: number,
-        rule: {
-          trigger: string;
-          action: ActionKind;
-          delay?: number;
-          duration?: number;
-          condition?: { op: ">" | "<" | "="; value: number } | null;
-        },
-      ): boolean => {
-        const blob = this.world.getBlob(blobId);
-        if (!blob) return false;
-        const full: Rule = {
-          id: Math.floor(Math.random() * 1e9),
-          trigger: rule.trigger,
-          action: rule.action,
-          condition: rule.condition ?? null,
-          delay: rule.delay ?? 0,
-          duration: rule.duration ?? 0,
-          busyUntil: 0,
-        };
-        blob.rules.push(full);
-        return true;
-      },
       regenerate: (): void => this.regenerate(),
       clearCreature: (): void => this.clearCreature(),
       save: (): void => this.save(),

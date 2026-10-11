@@ -13,6 +13,7 @@ export interface InteractionOptions {
   getWorld: () => World;
   onBlobTap: (blob: Blob, screen: Vec2) => void;
   uiOpen: () => boolean;
+  onDismissUi: () => void;
   onChange: () => void;
 }
 
@@ -21,6 +22,10 @@ export interface DragRender {
   pos: Vec2;
   type: BlockType;
 }
+
+const TRAVELLER_PICK = 0.22;
+const BLOB_PICK = 0.5;
+const MAX_DRAG = 1.5;
 
 export class Interaction {
   dragRender: DragRender | null = null;
@@ -48,20 +53,20 @@ export class Interaction {
 
   private pick(wp: Vec2): Hit {
     const world = this.o.getWorld();
+
     let bestT: Traveller | null = null;
-    let bestD = 0.45;
+    let bestTD = TRAVELLER_PICK;
     for (const t of world.travellers) {
       const p = world.travellerPos(t);
       const d = Math.hypot(p.x - wp.x, p.y - wp.y);
-      if (d < bestD) {
-        bestD = d;
+      if (d < bestTD) {
+        bestTD = d;
         bestT = t;
       }
     }
-    if (bestT) return { kind: "traveller", traveller: bestT };
 
     let bestB: Blob | null = null;
-    let bestBD = 0.5;
+    let bestBD = BLOB_PICK;
     for (const b of world.activeBlobs()) {
       const d = Math.hypot(b.x - wp.x, b.y - wp.y);
       if (d < bestBD) {
@@ -69,12 +74,18 @@ export class Interaction {
         bestB = b;
       }
     }
+
+    if (bestT && bestB) return bestTD <= bestBD ? { kind: "traveller", traveller: bestT } : { kind: "blob", blob: bestB };
+    if (bestT) return { kind: "traveller", traveller: bestT };
     if (bestB) return { kind: "blob", blob: bestB };
     return { kind: "none" };
   }
 
   private onDown = (e: PointerEvent): void => {
-    if (this.o.uiOpen()) return;
+    if (this.o.uiOpen()) {
+      this.o.onDismissUi();
+      return;
+    }
     this.o.canvas.setPointerCapture(e.pointerId);
     const p = this.local(e);
     this.pointers.set(e.pointerId, p);
@@ -140,7 +151,17 @@ export class Interaction {
       if (this.drag.kind === "traveller" && this.drag.traveller) {
         world.buildTravellerAt(this.drag.traveller, this.drag.pos.x, this.drag.pos.y);
       } else if (this.drag.kind === "blob" && this.drag.blob) {
-        world.repositionBlob(this.drag.blob, this.drag.pos.x, this.drag.pos.y);
+        const blob = this.drag.blob;
+        const dx = this.drag.pos.x - blob.x;
+        const dy = this.drag.pos.y - blob.y;
+        const dist = Math.hypot(dx, dy);
+        let x = this.drag.pos.x;
+        let y = this.drag.pos.y;
+        if (dist > MAX_DRAG) {
+          x = blob.x + (dx / dist) * MAX_DRAG;
+          y = blob.y + (dy / dist) * MAX_DRAG;
+        }
+        world.repositionBlob(blob, x, y);
       }
       this.o.onChange();
     }

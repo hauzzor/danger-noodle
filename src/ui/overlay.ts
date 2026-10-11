@@ -10,7 +10,6 @@ export interface OverlayHandlers {
 
 export interface Overlay {
   setSpeed: (speed: number) => void;
-  setLevel: (level: number) => void;
   setStatus: (text: string) => void;
   toast: (text: string) => void;
 }
@@ -77,9 +76,6 @@ export function createOverlay(root: HTMLElement, handlers: OverlayHandlers): Ove
     setSpeed: (speed: number) => {
       slider.value = String(speed);
       applySpeed();
-    },
-    setLevel: (level: number) => {
-      status.dataset.level = String(level);
     },
     setStatus: (text: string) => {
       status.textContent = text;

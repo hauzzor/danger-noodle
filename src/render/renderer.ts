@@ -6,19 +6,6 @@ import type { DragRender } from "../ui/interaction";
 
 const COLORS: Record<BlockType, string> = {
   basic: "#9aa3b2",
-  sensor: "#6ad1a3",
-  grip: "#e0a458",
-  contract: "#b07be0",
-  heart: "#ff6b6b",
-};
-
-const SIGNAL_COLORS: Record<string, string> = {
-  beat: "#ffd166",
-  touch: "#e8eaf0",
-  goal: "#6ad1a3",
-  food: "#ef476f",
-  tilt: "#8ecae6",
-  stretch: "#b07be0",
 };
 
 export class Renderer {
@@ -53,13 +40,10 @@ export class Renderer {
 
     this.drawGrid();
     this.drawGround();
-    this.drawGoal(world);
-    this.drawObstacles(world);
     this.drawCollectibles(world);
     this.drawBonds(world);
     this.drawBlobs(world);
     this.drawTravellers(world);
-    this.drawPulses(world);
     if (drag) this.drawGhost(drag);
 
     ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -119,55 +103,6 @@ export class Renderer {
     ctx.stroke();
   }
 
-  private drawObstacles(world: World): void {
-    const { ctx, camera } = this;
-    for (const o of world.obstacles) {
-      const p = this.P(o.x, o.y);
-      const r = o.r * camera.zoom;
-      if (o.kind === "rock") {
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
-        ctx.fillStyle = "#3a3f47";
-        ctx.fill();
-        ctx.strokeStyle = "#565c66";
-        ctx.lineWidth = 2;
-        ctx.stroke();
-      } else {
-        ctx.fillStyle = "#3b2a18";
-        ctx.fillRect(p.x - r * 0.2, p.y, r * 0.4, r);
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
-        ctx.fillStyle = "#2f5d3a";
-        ctx.fill();
-        ctx.strokeStyle = "#3f7a4e";
-        ctx.stroke();
-      }
-    }
-  }
-
-  private drawGoal(world: World): void {
-    const { ctx, camera } = this;
-    const p = this.P(world.goal.x, world.goal.y);
-    const r = 1.3 * camera.zoom;
-    ctx.beginPath();
-    ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
-    ctx.fillStyle = world.goalReached ? "rgba(106,209,163,0.25)" : "rgba(255,209,102,0.12)";
-    ctx.fill();
-    ctx.setLineDash([6, 6]);
-    ctx.strokeStyle = "#ffd166";
-    ctx.lineWidth = 2;
-    ctx.stroke();
-    ctx.setLineDash([]);
-    ctx.fillStyle = "#ffd166";
-    ctx.fillRect(p.x - 1.5, p.y - r, 3, r);
-    ctx.beginPath();
-    ctx.moveTo(p.x, p.y - r);
-    ctx.lineTo(p.x + r * 0.5, p.y - r * 0.75);
-    ctx.lineTo(p.x, p.y - r * 0.5);
-    ctx.closePath();
-    ctx.fill();
-  }
-
   private drawCollectibles(world: World): void {
     const { ctx, camera } = this;
     for (const c of world.collectibles) {
@@ -212,57 +147,18 @@ export class Renderer {
       ctx.fillStyle = COLORS[blob.type];
       ctx.fill();
       ctx.lineWidth = Math.max(1, r * 0.14);
-      ctx.strokeStyle = blob.gripActive ? "#fff2c2" : "rgba(0,0,0,0.35)";
+      ctx.strokeStyle = "rgba(0,0,0,0.35)";
       ctx.stroke();
-      this.drawGlyph(blob.type, p.x, p.y, r, blob.contractActive);
+      this.drawGlyph(p.x, p.y, r);
     }
   }
 
-  private drawGlyph(type: BlockType, x: number, y: number, r: number, active: boolean): void {
+  private drawGlyph(x: number, y: number, r: number): void {
     const { ctx } = this;
-    ctx.save();
-    ctx.strokeStyle = "rgba(0,0,0,0.55)";
+    ctx.beginPath();
+    ctx.arc(x, y, r * 0.26, 0, Math.PI * 2);
     ctx.fillStyle = "rgba(0,0,0,0.55)";
-    ctx.lineWidth = Math.max(1.2, r * 0.18);
-    if (type === "sensor") {
-      ctx.beginPath();
-      ctx.arc(x, y, r * 0.5, 0, Math.PI * 2);
-      ctx.fillStyle = "#0e0f13";
-      ctx.fill();
-      ctx.beginPath();
-      ctx.arc(x + r * 0.12, y, r * 0.22, 0, Math.PI * 2);
-      ctx.fillStyle = "#e8eaf0";
-      ctx.fill();
-    } else if (type === "grip") {
-      ctx.beginPath();
-      ctx.moveTo(x - r * 0.45, y - r * 0.35);
-      ctx.lineTo(x, y + r * 0.4);
-      ctx.lineTo(x + r * 0.45, y - r * 0.35);
-      ctx.stroke();
-    } else if (type === "contract") {
-      const gap = active ? r * 0.18 : r * 0.34;
-      for (let i = -1; i <= 1; i++) {
-        ctx.beginPath();
-        ctx.moveTo(x - r * 0.45, y + i * gap);
-        ctx.lineTo(x + r * 0.45, y + i * gap);
-        ctx.stroke();
-      }
-    } else if (type === "heart") {
-      ctx.beginPath();
-      ctx.arc(x - r * 0.2, y - r * 0.1, r * 0.22, 0, Math.PI * 2);
-      ctx.arc(x + r * 0.2, y - r * 0.1, r * 0.22, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.beginPath();
-      ctx.moveTo(x - r * 0.4, y - r * 0.05);
-      ctx.lineTo(x, y + r * 0.45);
-      ctx.lineTo(x + r * 0.4, y - r * 0.05);
-      ctx.fill();
-    } else {
-      ctx.beginPath();
-      ctx.arc(x, y, r * 0.26, 0, Math.PI * 2);
-      ctx.fill();
-    }
-    ctx.restore();
+    ctx.fill();
   }
 
   private drawTravellers(world: World): void {
@@ -282,47 +178,6 @@ export class Renderer {
       ctx.lineWidth = Math.max(1, r * 0.2);
       ctx.strokeStyle = "rgba(255,255,255,0.5)";
       ctx.stroke();
-    }
-  }
-
-  private drawPulses(world: World): void {
-    const { ctx, camera } = this;
-    for (const pulse of world.pulses) {
-      const front = pulse.age / pulse.hopTime;
-      const fade = 1 - pulse.age / (pulse.maxHops * pulse.hopTime);
-      const color = SIGNAL_COLORS[pulse.type] ?? "#ffffff";
-      for (const bond of world.bonds) {
-        if (!bond.active) continue;
-        const da = pulse.hopDist.get(bond.a);
-        const db = pulse.hopDist.get(bond.b);
-        let parent: number;
-        let child: number;
-        let dparent: number;
-        if (da != null && db != null && db === da + 1) {
-          parent = bond.a;
-          child = bond.b;
-          dparent = da;
-        } else if (da != null && db != null && da === db + 1) {
-          parent = bond.b;
-          child = bond.a;
-          dparent = db;
-        } else {
-          continue;
-        }
-        const f = front - dparent;
-        if (f < 0 || f > 1) continue;
-        const a = world.blobs[parent];
-        const b = world.blobs[child];
-        if (!a || !b) continue;
-        const p = this.P(a.x + (b.x - a.x) * f, a.y + (b.y - a.y) * f);
-        const r = 0.12 * camera.zoom;
-        ctx.globalAlpha = Math.max(0, Math.min(1, fade));
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
-        ctx.fillStyle = color;
-        ctx.fill();
-        ctx.globalAlpha = 1;
-      }
     }
   }
 
