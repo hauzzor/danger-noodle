@@ -4,9 +4,9 @@ const hills = valueNoise1D(1337);
 const bumps = valueNoise1D(7331);
 
 export function groundY(x: number): number {
-  const h = hills(x * 0.05) * 2 - 1;
-  const b = bumps(x * 0.23) * 2 - 1;
-  return h * 1.1 + b * 0.45;
+  const h = hills(x * 0.035) * 2 - 1;
+  const b = bumps(x * 0.22) * 2 - 1;
+  return h * 3.0 + b * 0.5;
 }
 
 export function groundSlope(x: number): number {
