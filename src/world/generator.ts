@@ -6,10 +6,10 @@ import { World } from "../sim/world";
 const SPAWN = { x: -1.8, y: -10 };
 const BODY_POINTS: [number, number][] = [
   [0, 0],
-  [1.8, 0],
-  [3.6, 0],
-  [0.9, -1.56],
-  [2.7, -1.56],
+  [2.2, 0],
+  [4.4, 0],
+  [1.1, -1.907],
+  [3.3, -1.907],
 ];
 const BODY_BONDS: [number, number][] = [
   [0, 1],

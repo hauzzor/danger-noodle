@@ -204,20 +204,24 @@ export class Interaction {
     if (this.drag) {
       const world = this.o.getWorld();
       if (this.drag.kind === "traveller" && this.drag.traveller) {
-        if (moved) {
-          world.buildTravellerAt(this.drag.traveller, this.drag.pos.x, this.drag.pos.y, plan);
-        } else {
-          // A plain click: put the loose block back where it was.
+        if (!moved || world.placementBlocked(this.drag.pos.x, this.drag.pos.y)) {
+          // A plain click, or a spot that would intersect the structure: the
+          // loose block cannot be built there, so put it back.
           world.travellers.push(this.drag.traveller);
+        } else {
+          world.buildTravellerAt(this.drag.traveller, this.drag.pos.x, this.drag.pos.y, plan);
         }
       } else if (this.drag.kind === "blob" && this.drag.blob) {
         const blob = this.drag.blob;
-        if (moved) {
-          world.attachBlob(blob, this.drag.pos.x, this.drag.pos.y, plan);
-        } else {
+        if (!moved) {
           // A plain click: put the block back exactly where it was and open its menu.
           world.attachBlob(blob, blob.x, blob.y, this.drag.origin);
           this.o.onBlobTap(blob, p);
+        } else if (world.placementBlocked(this.drag.pos.x, this.drag.pos.y)) {
+          // Cannot be built here: return it to where it came from.
+          world.attachBlob(blob, blob.x, blob.y, this.drag.origin);
+        } else {
+          world.attachBlob(blob, this.drag.pos.x, this.drag.pos.y, plan);
         }
       }
       this.o.onChange();

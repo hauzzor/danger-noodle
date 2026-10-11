@@ -112,10 +112,30 @@ export class World {
   }
 
   // The beams a new block at (x, y) would actually form: the same list the
-  // build uses, capped by the per-block bond limit. Ghost preview and building
-  // must both go through this so they never disagree.
+  // build uses, capped by the per-block bond limit. A new block cannot be built
+  // where it would intersect the existing structure, so the plan is empty then.
+  // Ghost preview and building both go through this so they never disagree.
   planBonds(x: number, y: number): Blob[] {
+    if (this.placementBlocked(x, y)) return [];
     return this.previewCandidates(x, y).slice(0, this.maxBondsPerBlob);
+  }
+
+  // True if a new block placed at (x, y) would intersect an existing block or
+  // beam. The block being placed (if held) is ignored.
+  placementBlocked(x: number, y: number): boolean {
+    for (const k of this.blobs) {
+      if (k.removed || k.held) continue;
+      if (Math.hypot(k.x - x, k.y - y) < BLOB_RADIUS + k.radius) return true;
+    }
+    for (const bond of this.bonds) {
+      if (!bond.active) continue;
+      const a = this.blobs[bond.a];
+      const b = this.blobs[bond.b];
+      if (!a || !b || a.removed || b.removed || a.held || b.held) continue;
+      const cp = closestOnSegment(x, y, a.x, a.y, b.x, b.y);
+      if (Math.hypot(x - cp.x, y - cp.y) < BLOB_RADIUS + BEAM_RADIUS) return true;
+    }
+    return false;
   }
 
   // Resolve a list of block ids to live blocks, optionally excluding one.

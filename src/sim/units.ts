@@ -11,7 +11,7 @@ export const COLLECTIBLE_RADIUS = 0.45 * UNIT;
 // Half-thickness of a beam treated as a solid capsule for collisions.
 export const BEAM_RADIUS = 0.15 * UNIT;
 
-export const MIN_BOND_DIST = 1 * UNIT;
+export const MIN_BOND_DIST = 2 * UNIT;
 export const MAX_BOND_DIST = 3 * UNIT;
 
 export function units(n: number): number {
