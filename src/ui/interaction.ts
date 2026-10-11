@@ -27,7 +27,9 @@ export interface DragRender {
 
 const TRAVELLER_PICK = units(0.24);
 const BLOB_PICK = units(0.6);
-const MAX_DRAG = units(3);
+const MOVE_THRESHOLD = 6;
+
+type DragState = { kind: "blob" | "traveller"; blob?: Blob; traveller?: Traveller; pos: Vec2 };
 
 export class Interaction {
   dragRender: DragRender | null = null;
@@ -35,7 +37,7 @@ export class Interaction {
   private pointers = new Map<number, Vec2>();
   private down: { screen: Vec2; hit: Hit; moved: boolean } | null = null;
   private panning = false;
-  private drag: { kind: "blob" | "traveller"; blob?: Blob; traveller?: Traveller; pos: Vec2 } | null = null;
+  private drag: DragState | null = null;
   private lastPinch = 0;
 
   constructor(private readonly o: InteractionOptions) {
@@ -70,6 +72,7 @@ export class Interaction {
     let bestB: Blob | null = null;
     let bestBD = BLOB_PICK;
     for (const b of world.activeBlobs()) {
+      if (b.held) continue;
       const d = Math.hypot(b.x - wp.x, b.y - wp.y);
       if (d < bestBD) {
         bestBD = d;
@@ -98,7 +101,18 @@ export class Interaction {
     }
     if (this.pointers.size === 1) {
       const wp = this.o.camera.s2w(p.x, p.y);
-      this.down = { screen: p, hit: this.pick(wp), moved: false };
+      const hit = this.pick(wp);
+      this.down = { screen: p, hit, moved: false };
+      // Grab immediately: a structure block is detached into the player's hand
+      // (ghost mode) on pointer-down, before any drag movement.
+      if (hit.kind === "blob") {
+        this.o.getWorld().detachBlob(hit.blob);
+        this.drag = { kind: "blob", blob: hit.blob, pos: wp };
+        this.dragRender = { kind: "blob", pos: wp, type: hit.blob.type, id: hit.blob.id };
+      } else if (hit.kind === "traveller") {
+        this.drag = { kind: "traveller", traveller: hit.traveller, pos: wp };
+        this.dragRender = { kind: "traveller", pos: wp, type: hit.traveller.type, id: hit.traveller.id };
+      }
     }
   };
 
@@ -119,21 +133,20 @@ export class Interaction {
     }
 
     if (this.down) {
-      if (!this.down.moved && Math.hypot(p.x - this.down.screen.x, p.y - this.down.screen.y) > 8) {
+      if (!this.down.moved && Math.hypot(p.x - this.down.screen.x, p.y - this.down.screen.y) > MOVE_THRESHOLD) {
         this.down.moved = true;
-        if (this.down.hit.kind === "traveller") {
-          this.drag = { kind: "traveller", traveller: this.down.hit.traveller, pos: this.o.camera.s2w(p.x, p.y) };
-        } else if (this.down.hit.kind === "blob") {
-          this.drag = { kind: "blob", blob: this.down.hit.blob, pos: this.o.camera.s2w(p.x, p.y) };
-        } else {
-          this.panning = true;
-        }
       }
-      if (this.panning) {
-        this.o.camera.panScreen(p.x - prev.x, p.y - prev.y);
-      } else if (this.drag) {
+      if (this.drag) {
         this.drag.pos = this.o.camera.s2w(p.x, p.y);
-        this.dragRender = { kind: this.drag.kind, pos: this.drag.pos, type: this.dragType(), id: this.drag.blob?.id ?? this.drag.traveller?.id ?? 0 };
+        this.dragRender = {
+          kind: this.drag.kind,
+          pos: this.drag.pos,
+          type: this.dragType(),
+          id: this.drag.blob?.id ?? this.drag.traveller?.id ?? 0,
+        };
+      } else {
+        if (this.down.moved) this.panning = true;
+        if (this.panning) this.o.camera.panScreen(p.x - prev.x, p.y - prev.y);
       }
     }
   };
@@ -144,26 +157,20 @@ export class Interaction {
     this.pointers.delete(e.pointerId);
     if (this.pointers.size < 2) this.lastPinch = 0;
 
-    if (this.down && !this.down.moved) {
-      if (this.down.hit.kind === "blob") this.o.onBlobTap(this.down.hit.blob, p);
-    }
-
+    const moved = this.down?.moved ?? false;
     if (this.drag) {
       const world = this.o.getWorld();
       if (this.drag.kind === "traveller" && this.drag.traveller) {
-        world.buildTravellerAt(this.drag.traveller, this.drag.pos.x, this.drag.pos.y);
+        if (moved) world.buildTravellerAt(this.drag.traveller, this.drag.pos.x, this.drag.pos.y);
       } else if (this.drag.kind === "blob" && this.drag.blob) {
         const blob = this.drag.blob;
-        const dx = this.drag.pos.x - blob.x;
-        const dy = this.drag.pos.y - blob.y;
-        const dist = Math.hypot(dx, dy);
-        let x = this.drag.pos.x;
-        let y = this.drag.pos.y;
-        if (dist > MAX_DRAG) {
-          x = blob.x + (dx / dist) * MAX_DRAG;
-          y = blob.y + (dy / dist) * MAX_DRAG;
+        if (moved) {
+          world.attachBlob(blob, this.drag.pos.x, this.drag.pos.y);
+        } else {
+          // A plain click: put the block back where it was and open its menu.
+          world.attachBlob(blob, blob.x, blob.y);
+          this.o.onBlobTap(blob, p);
         }
-        world.repositionBlob(blob, x, y);
       }
       this.o.onChange();
     }

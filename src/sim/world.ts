@@ -1,7 +1,7 @@
 import { groundY } from "./terrain";
 import { updateTravellers } from "./travel";
-import { segmentsCross } from "./geometry";
-import { BLOB_RADIUS, COLLECTIBLE_RADIUS, MAX_BOND_DIST, MIN_BOND_DIST } from "./units";
+import { closestOnSegment, segmentsCross, segSegClosest } from "./geometry";
+import { BEAM_RADIUS, BLOB_RADIUS, COLLECTIBLE_RADIUS, MAX_BOND_DIST, MIN_BOND_DIST } from "./units";
 import type { Blob, BlockType, Bond, Collectible, Neighbor, Traveller, Vec2 } from "./types";
 
 export class World {
@@ -11,7 +11,7 @@ export class World {
   collectibles: Collectible[] = [];
   time = 0;
 
-  gravity = 20;
+  gravity = 40;
   damping = 0.99;
   iterations = 4;
   groundFriction = 0.5;
@@ -35,6 +35,7 @@ export class World {
       radius,
       invMass: 1,
       onGround: false,
+      held: false,
       removed: false,
     };
     this.blobs.push(blob);
@@ -59,6 +60,7 @@ export class World {
     const rest = Math.hypot(b.x - a.x, b.y - a.y);
     if (rest < MIN_BOND_DIST || rest > MAX_BOND_DIST) return null;
     if (this.crossesExisting(a.x, a.y, b.x, b.y, [a.id - 1, b.id - 1])) return null;
+    if (this.segmentHitsBlob(a.x, a.y, b.x, b.y, [a.id - 1, b.id - 1])) return null;
     const id = this.bonds.length;
     this.bonds.push({ a: a.id - 1, b: b.id - 1, rest, stiffness, active: true });
     this.rebuildAdjacency();
@@ -79,16 +81,31 @@ export class World {
     return false;
   }
 
+  // True if the segment (x1,y1)-(x2,y2) passes within colliding distance of any
+  // active, non-held blob whose index is not in `exclude`.
+  private segmentHitsBlob(x1: number, y1: number, x2: number, y2: number, exclude: number[]): boolean {
+    for (const k of this.blobs) {
+      const ki = k.id - 1;
+      if (k.removed || k.held || exclude.includes(ki)) continue;
+      const cp = closestOnSegment(k.x, k.y, x1, y1, x2, y2);
+      if (Math.hypot(k.x - cp.x, k.y - cp.y) < BEAM_RADIUS + k.radius) return true;
+    }
+    return false;
+  }
+
   // Blocks that a hypothetical new block at (x, y) could legally bond to:
   // within the [min, max] unit range, with spare bond slots, and without the
-  // new beam crossing an existing beam. Sorted nearest-first.
+  // new beam crossing an existing beam or passing through another block.
+  // Sorted nearest-first.
   previewCandidates(x: number, y: number): Blob[] {
     const result: Blob[] = [];
     for (const o of this.activeBlobs()) {
+      if (o.removed || o.held) continue;
       if (this.degree(o) >= this.maxBondsPerBlob) continue;
       const d = Math.hypot(o.x - x, o.y - y);
       if (d < MIN_BOND_DIST || d > MAX_BOND_DIST) continue;
       if (this.crossesExisting(x, y, o.x, o.y, [o.id - 1])) continue;
+      if (this.segmentHitsBlob(x, y, o.x, o.y, [o.id - 1])) continue;
       result.push(o);
     }
     return result.sort((p, q) => Math.hypot(p.x - x, p.y - y) - Math.hypot(q.x - x, q.y - y));
@@ -154,7 +171,46 @@ export class World {
       this.addBond(blob, o);
     }
     this.removeTraveller(t);
+    this.settleVelocities();
     return blob;
+  }
+
+  // Take a block out of the structure and into the player's hand. Its beams are
+  // removed and it stops being simulated; it is re-attached on drop.
+  detachBlob(blob: Blob): void {
+    if (blob.removed || blob.held) return;
+    for (const bond of this.bonds) {
+      if (bond.active && (bond.a === blob.id - 1 || bond.b === blob.id - 1)) bond.active = false;
+    }
+    blob.held = true;
+    this.rebuildAdjacency();
+    this.settleVelocities();
+  }
+
+  // Place a held block at (x, y) and re-build every legal beam there.
+  attachBlob(blob: Blob, x: number, y: number): void {
+    blob.held = false;
+    blob.x = x;
+    blob.y = y;
+    blob.px = x;
+    blob.py = y;
+    this.rebuildAdjacency();
+    const near = this.previewCandidates(x, y);
+    for (const o of near) {
+      if (this.degree(blob) >= this.maxBondsPerBlob) break;
+      this.addBond(blob, o);
+    }
+    this.settleVelocities();
+  }
+
+  // Adding or removing blocks must not inject momentum into the structure:
+  // cancel the implied velocity of every block after a structural change.
+  private settleVelocities(): void {
+    for (const b of this.blobs) {
+      if (b.removed) continue;
+      b.px = b.x;
+      b.py = b.y;
+    }
   }
 
   repositionBlob(blob: Blob, x: number, y: number): void {
@@ -173,6 +229,7 @@ export class World {
     }
     this.travellers = this.travellers.filter((t) => t.from !== id - 1 && t.to !== id - 1);
     this.rebuildAdjacency();
+    this.settleVelocities();
   }
 
   rebuildAdjacency(): void {
@@ -238,7 +295,7 @@ export class World {
     for (const c of this.collectibles) {
       if (c.collected) continue;
       for (const b of this.blobs) {
-        if (b.removed) continue;
+        if (b.removed || b.held) continue;
         if (Math.hypot(b.x - c.x, b.y - c.y) <= b.radius + c.radius) {
           c.collected = true;
           this.spawnTravellerNear(b.x, b.y, c.type);
@@ -254,7 +311,10 @@ export class World {
   step(dt: number): void {
     this.time += dt;
     this.integrate(dt);
-    for (let i = 0; i < this.iterations; i++) this.solveConstraints();
+    for (let i = 0; i < this.iterations; i++) {
+      this.solveConstraints();
+      this.solveCollisions();
+    }
     this.collide();
     this.collect();
     updateTravellers(this, dt);
@@ -263,7 +323,7 @@ export class World {
   private integrate(dt: number): void {
     const dt2 = dt * dt;
     for (const b of this.blobs) {
-      if (b.removed) continue;
+      if (b.removed || b.held) continue;
       const vx = (b.x - b.px) * this.damping;
       const vy = (b.y - b.py) * this.damping;
       b.px = b.x;
@@ -286,7 +346,7 @@ export class World {
       if (!bond.active) continue;
       const a = this.blobs[bond.a];
       const b = this.blobs[bond.b];
-      if (!a || !b || a.removed || b.removed) continue;
+      if (!a || !b || a.removed || b.removed || a.held || b.held) continue;
       const dx = b.x - a.x;
       const dy = b.y - a.y;
       const dist = Math.hypot(dx, dy) || 1e-6;
@@ -304,6 +364,97 @@ export class World {
     }
   }
 
+  // Solid-body pass: blocks and beams cannot overlap or pass through one another.
+  // Beams are treated as capsules; blocks as circles.
+  private solveCollisions(): void {
+    const blobs = this.blobs;
+
+    // block vs block
+    for (let i = 0; i < blobs.length; i++) {
+      const a = blobs[i];
+      if (a.removed || a.held) continue;
+      for (let j = i + 1; j < blobs.length; j++) {
+        const b = blobs[j];
+        if (b.removed || b.held) continue;
+        const dx = b.x - a.x;
+        const dy = b.y - a.y;
+        const d = Math.hypot(dx, dy);
+        const minD = a.radius + b.radius;
+        if (d >= minD || d < 1e-6) continue;
+        const nx = dx / d;
+        const ny = dy / d;
+        const pen = (minD - d) * 0.5;
+        a.x -= nx * pen;
+        a.y -= ny * pen;
+        b.x += nx * pen;
+        b.y += ny * pen;
+      }
+    }
+
+    // block vs beam
+    for (const bond of this.bonds) {
+      if (!bond.active) continue;
+      const a = blobs[bond.a];
+      const b = blobs[bond.b];
+      if (!a || !b || a.removed || b.removed || a.held || b.held) continue;
+      for (const k of blobs) {
+        const ki = k.id - 1;
+        if (k.removed || k.held || ki === bond.a || ki === bond.b) continue;
+        const cp = closestOnSegment(k.x, k.y, a.x, a.y, b.x, b.y);
+        let dx = k.x - cp.x;
+        let dy = k.y - cp.y;
+        let d = Math.hypot(dx, dy);
+        const minD = BEAM_RADIUS + k.radius;
+        if (d >= minD) continue;
+        if (d < 1e-6) {
+          dx = k.x - a.x;
+          dy = k.y - a.y;
+          d = Math.hypot(dx, dy) || 1e-6;
+        }
+        const nx = dx / d;
+        const ny = dy / d;
+        const pen = (minD - d) * 0.5;
+        k.x += nx * pen;
+        k.y += ny * pen;
+        a.x -= nx * pen * (1 - cp.t);
+        a.y -= ny * pen * (1 - cp.t);
+        b.x -= nx * pen * cp.t;
+        b.y -= ny * pen * cp.t;
+      }
+    }
+
+    // beam vs beam
+    for (let i = 0; i < this.bonds.length; i++) {
+      const b1 = this.bonds[i];
+      if (!b1.active) continue;
+      const a = blobs[b1.a];
+      const b = blobs[b1.b];
+      if (!a || !b || a.removed || b.removed || a.held || b.held) continue;
+      for (let j = i + 1; j < this.bonds.length; j++) {
+        const b2 = this.bonds[j];
+        if (!b2.active) continue;
+        if (b1.a === b2.a || b1.a === b2.b || b1.b === b2.a || b1.b === b2.b) continue;
+        const c = blobs[b2.a];
+        const d = blobs[b2.b];
+        if (!c || !d || c.removed || d.removed || c.held || d.held) continue;
+        const r = segSegClosest(a.x, a.y, b.x, b.y, c.x, c.y, d.x, d.y);
+        const minD = 2 * BEAM_RADIUS;
+        if (r.d >= minD || r.d < 1e-6) continue;
+        const nx = (r.p2.x - r.p1.x) / r.d;
+        const ny = (r.p2.y - r.p1.y) / r.d;
+        const pen = (minD - r.d) * 0.5;
+        a.x -= nx * pen * (1 - r.p1.t);
+        a.y -= ny * pen * (1 - r.p1.t);
+        b.x -= nx * pen * r.p1.t;
+        b.y -= ny * pen * r.p1.t;
+        c.x += nx * pen * (1 - r.p2.t);
+        c.y += ny * pen * (1 - r.p2.t);
+        d.x += nx * pen * r.p2.t;
+        d.y += ny * pen * r.p2.t;
+      }
+    }
+  }
+
   private collideCircle(x: number, y: number, r: number): { x: number; y: number; onGround: boolean } {
     let ny = y;
     let onGround = false;
@@ -317,7 +468,7 @@ export class World {
 
   private collide(): void {
     for (const b of this.blobs) {
-      if (b.removed) continue;
+      if (b.removed || b.held) continue;
       const res = this.collideCircle(b.x, b.y, b.radius);
       b.onGround = res.onGround;
       if (res.y !== b.y || res.x !== b.x) {

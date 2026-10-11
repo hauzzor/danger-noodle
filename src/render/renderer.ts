@@ -174,7 +174,10 @@ export class Renderer {
   }
 
   private drawBlobs(world: World): void {
-    for (const blob of world.activeBlobs()) this.drawBlock(blob);
+    for (const blob of world.activeBlobs()) {
+      if (blob.held) continue;
+      this.drawBlock(blob);
+    }
   }
 
   private drawTravellers(world: World): void {
@@ -209,19 +212,18 @@ export class Renderer {
       radius: BLOB_RADIUS,
       invMass: 1,
       onGround: false,
+      held: false,
       removed: false,
     };
 
-    if (drag.kind === "traveller") {
-      for (const other of world.previewCandidates(drag.pos.x, drag.pos.y)) {
-        this.drawBeam(
-          this.P(drag.pos.x, drag.pos.y),
-          this.P(other.x, other.y),
-          this.blockColor(ghost),
-          this.blockColor(other),
-          0.45,
-        );
-      }
+    for (const other of world.previewCandidates(drag.pos.x, drag.pos.y)) {
+      this.drawBeam(
+        this.P(drag.pos.x, drag.pos.y),
+        this.P(other.x, other.y),
+        this.blockColor(ghost),
+        this.blockColor(other),
+        0.45,
+      );
     }
     this.drawBlock(ghost, 0.5);
 

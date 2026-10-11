@@ -10,6 +10,7 @@ export interface Blob {
   radius: number;
   invMass: number;
   onGround: boolean;
+  held: boolean;
   removed: boolean;
 }
 
