@@ -15,6 +15,7 @@ export interface Blob {
   emitOn: boolean;
   emitInterval: number;
   emitTimer: number;
+  signalSpeed: number;
 }
 
 export interface Bond {

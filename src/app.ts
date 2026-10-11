@@ -115,6 +115,17 @@ export class App {
           blob.emitInterval = v;
         },
       });
+      items.push({
+        kind: "slider",
+        label: "Signal speed",
+        value: blob.signalSpeed,
+        min: 1,
+        max: 30,
+        step: 1,
+        onChange: (v) => {
+          blob.signalSpeed = v;
+        },
+      });
     }
     items.push({
       kind: "button",

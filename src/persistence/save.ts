@@ -1,4 +1,4 @@
-import { World } from "../sim/world";
+import { HOP_TIME, World } from "../sim/world";
 import type { BlockType, Traveller } from "../sim/types";
 import type { Progress } from "../game/state";
 
@@ -18,6 +18,7 @@ export interface Snapshot {
     emitOn: boolean;
     emitInterval: number;
     emitTimer: number;
+    signalSpeed: number;
   }[];
   bonds: { a: number; b: number; rest: number; stiffness: number }[];
   travellers: {
@@ -34,7 +35,7 @@ export interface Snapshot {
 
 export function serialize(world: World, progress: Progress): Snapshot {
   return {
-    version: 4,
+    version: 5,
     timestamp: Date.now(),
     progress: { ...progress },
     time: world.time,
@@ -49,6 +50,7 @@ export function serialize(world: World, progress: Progress): Snapshot {
       emitOn: b.emitOn,
       emitInterval: b.emitInterval,
       emitTimer: b.emitTimer,
+      signalSpeed: b.signalSpeed,
     })),
     bonds: world.bonds
       .filter((bond) => bond.active)
@@ -78,6 +80,7 @@ export function deserialize(data: Snapshot): { world: World; progress: Progress 
     blob.emitOn = bd.emitOn ?? false;
     blob.emitInterval = bd.emitInterval ?? 1.5;
     blob.emitTimer = bd.emitTimer ?? 0;
+    blob.signalSpeed = bd.signalSpeed ?? 1 / HOP_TIME;
     idMap.set(bd.id, blob.id);
   }
 

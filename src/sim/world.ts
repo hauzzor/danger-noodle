@@ -44,6 +44,7 @@ export class World {
       emitOn: false,
       emitInterval: 1.5,
       emitTimer: 0,
+      signalSpeed: 1 / HOP_TIME,
     };
     this.blobs.push(blob);
     this.rebuildAdjacency();
@@ -494,11 +495,12 @@ export class World {
       }
     }
     if (this.pulses.length > 200) this.pulses.shift();
+    const speed = source.signalSpeed > 0 ? source.signalSpeed : 1 / HOP_TIME;
     this.pulses.push({
       id: this.nextPulse++,
       source: source.id,
       age: 0,
-      hopTime: HOP_TIME,
+      hopTime: 1 / speed,
       maxHops: MAX_HOPS,
       hopDist,
       delivered: new Set(),

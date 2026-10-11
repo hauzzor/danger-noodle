@@ -260,6 +260,7 @@ export class Renderer {
       emitOn: false,
       emitInterval: 1.5,
       emitTimer: 0,
+      signalSpeed: 0,
     };
 
     for (const id of drag.plan) {
