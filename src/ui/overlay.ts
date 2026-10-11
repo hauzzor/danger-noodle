@@ -1,5 +1,7 @@
 export interface OverlayHandlers {
   onSpeed: (speed: number) => void;
+  onToggleReplace: () => void;
+  onToggleMenu: () => void;
   onRegenerate: () => void;
   onClear: () => void;
   onSave: () => void;
@@ -10,6 +12,8 @@ export interface OverlayHandlers {
 
 export interface Overlay {
   setSpeed: (speed: number) => void;
+  setReplace: (on: boolean) => void;
+  setMenu: (on: boolean) => void;
   setStatus: (text: string) => void;
   toast: (text: string) => void;
 }
@@ -43,6 +47,26 @@ export function createOverlay(root: HTMLElement, handlers: OverlayHandlers): Ove
   slider.addEventListener("input", applySpeed);
   speedWrap.append(speedLabel, slider, speedValue);
 
+  const replaceBtn = document.createElement("button");
+  replaceBtn.className = "btn toggle";
+  const setReplace = (on: boolean): void => {
+    replaceBtn.textContent = `Replace: ${on ? "on" : "off"}`;
+    replaceBtn.classList.toggle("active", on);
+    replaceBtn.setAttribute("aria-pressed", String(on));
+  };
+  replaceBtn.addEventListener("click", handlers.onToggleReplace);
+  setReplace(true);
+
+  const menuBtn = document.createElement("button");
+  menuBtn.className = "btn toggle";
+  const setMenu = (on: boolean): void => {
+    menuBtn.textContent = `Menu: ${on ? "on" : "off"}`;
+    menuBtn.classList.toggle("active", on);
+    menuBtn.setAttribute("aria-pressed", String(on));
+  };
+  menuBtn.addEventListener("click", handlers.onToggleMenu);
+  setMenu(true);
+
   const status = document.createElement("div");
   status.className = "status";
 
@@ -67,7 +91,7 @@ export function createOverlay(root: HTMLElement, handlers: OverlayHandlers): Ove
   const toastEl = document.createElement("div");
   toastEl.className = "toast hidden";
 
-  bar.append(title, speedWrap, status, actions);
+  bar.append(title, speedWrap, replaceBtn, menuBtn, status, actions);
   root.append(bar, toastEl);
   applySpeed();
 
@@ -77,6 +101,8 @@ export function createOverlay(root: HTMLElement, handlers: OverlayHandlers): Ove
       slider.value = String(speed);
       applySpeed();
     },
+    setReplace,
+    setMenu,
     setStatus: (text: string) => {
       status.textContent = text;
     },

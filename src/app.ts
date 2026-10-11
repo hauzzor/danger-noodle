@@ -20,6 +20,8 @@ export class App {
   private readonly interaction: Interaction;
   private readonly loop: GameLoop;
   private statusTick = 0;
+  private replaceOn = true;
+  private menuOn = true;
 
   constructor(canvas: HTMLCanvasElement, uiRoot: HTMLElement) {
     this.progress = createProgress(Math.floor(Math.random() * 1e9));
@@ -35,6 +37,15 @@ export class App {
     this.overlay = createOverlay(uiRoot, {
       onSpeed: (s) => {
         this.loop.speed = s;
+      },
+      onToggleReplace: () => {
+        this.replaceOn = !this.replaceOn;
+        this.overlay.setReplace(this.replaceOn);
+      },
+      onToggleMenu: () => {
+        this.menuOn = !this.menuOn;
+        this.overlay.setMenu(this.menuOn);
+        if (!this.menuOn) this.radial.close();
       },
       onRegenerate: () => this.regenerate(),
       onClear: () => this.clearCreature(),
@@ -55,6 +66,7 @@ export class App {
       uiOpen: () => this.radial.isOpen(),
       onDismissUi: () => this.radial.close(),
       onChange: () => {},
+      canDragBlocks: () => this.replaceOn,
     });
   }
 
@@ -79,6 +91,7 @@ export class App {
   }
 
   private openBlobMenu(blobId: number, screen: { x: number; y: number }): void {
+    if (!this.menuOn) return;
     const blob = this.world.getBlob(blobId);
     if (!blob) return;
     this.radial.open(screen.x, screen.y, [

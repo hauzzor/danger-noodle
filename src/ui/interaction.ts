@@ -17,6 +17,7 @@ export interface InteractionOptions {
   uiOpen: () => boolean;
   onDismissUi: () => void;
   onChange: () => void;
+  canDragBlocks: () => boolean;
 }
 
 export interface DragRender {
@@ -140,13 +141,16 @@ export class Interaction {
       const hit = this.pick(wp);
       this.down = { screen: p, hit, moved: false };
       // Grab immediately: a structure block is detached into the player's hand
-      // (ghost mode) on pointer-down, before any drag movement.
+      // (ghost mode) on pointer-down, before any drag movement. Disabled when
+      // "replace" is off, so built blocks stay put.
       if (hit.kind === "blob") {
-        const world = this.o.getWorld();
-        const origin = world.neighbors(hit.blob.id - 1).map((n) => world.blobs[n.other].id);
-        world.detachBlob(hit.blob);
-        this.drag = { kind: "blob", blob: hit.blob, pos: wp, origin };
-        this.dragRender = { kind: "blob", pos: wp, type: hit.blob.type, id: hit.blob.id, plan: this.planFor(wp) };
+        if (this.o.canDragBlocks()) {
+          const world = this.o.getWorld();
+          const origin = world.neighbors(hit.blob.id - 1).map((n) => world.blobs[n.other].id);
+          world.detachBlob(hit.blob);
+          this.drag = { kind: "blob", blob: hit.blob, pos: wp, origin };
+          this.dragRender = { kind: "blob", pos: wp, type: hit.blob.type, id: hit.blob.id, plan: this.planFor(wp) };
+        }
       } else if (hit.kind === "traveller") {
         // Remove the loose block from the structure immediately; it now lives
         // only in the player's hand (ghost mode) until dropped.
@@ -225,6 +229,9 @@ export class Interaction {
         }
       }
       this.o.onChange();
+    } else if (this.down && !moved && this.down.hit.kind === "blob") {
+      // Replace disabled (no grab happened): a plain tap still opens the menu.
+      this.o.onBlobTap(this.down.hit.blob, p);
     }
 
     this.down = null;

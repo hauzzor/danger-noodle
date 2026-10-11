@@ -117,6 +117,12 @@ body {
   color: #ff9b9b;
 }
 
+#ui .btn.active {
+  border-color: rgba(106, 209, 163, 0.6);
+  background: rgba(106, 209, 163, 0.18);
+  color: #bff0d6;
+}
+
 #ui .status {
   font-size: 13px;
   color: var(--muted);
