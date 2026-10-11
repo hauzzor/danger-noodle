@@ -1,7 +1,10 @@
+import type { BlockType } from "../sim/types";
+
 export interface OverlayHandlers {
   onSpeed: (speed: number) => void;
   onToggleReplace: () => void;
   onToggleMenu: () => void;
+  onSpawn: (type: BlockType) => void;
   onRegenerate: () => void;
   onClear: () => void;
   onSave: () => void;
@@ -70,6 +73,22 @@ export function createOverlay(root: HTMLElement, handlers: OverlayHandlers): Ove
   const status = document.createElement("div");
   status.className = "status";
 
+  const leftBar = document.createElement("div");
+  leftBar.className = "overlay-left";
+  const spawnDefs: [BlockType, string][] = [
+    ["basic", "Basic"],
+    ["generator", "Generator"],
+    ["contractor", "Contractor"],
+    ["grabber", "Grabber"],
+  ];
+  for (const [type, label] of spawnDefs) {
+    const btn = document.createElement("button");
+    btn.className = `btn spawn ${type}`;
+    btn.textContent = label;
+    btn.addEventListener("click", () => handlers.onSpawn(type));
+    leftBar.append(btn);
+  }
+
   const actions = document.createElement("div");
   actions.className = "actions";
   const defs: [string, () => void][] = [
@@ -92,7 +111,7 @@ export function createOverlay(root: HTMLElement, handlers: OverlayHandlers): Ove
   toastEl.className = "toast hidden";
 
   bar.append(title, speedWrap, replaceBtn, menuBtn, status, actions);
-  root.append(bar, toastEl);
+  root.append(bar, leftBar, toastEl);
   applySpeed();
 
   let toastTimer = 0;

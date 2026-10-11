@@ -44,6 +44,8 @@ export class Interaction {
   private down: { screen: Vec2; hit: Hit; moved: boolean } | null = null;
   private panning = false;
   private drag: DragState | null = null;
+  private spawned: Traveller | null = null;
+  private lastPointer: Vec2 | null = null;
   private lastPinch = 0;
 
   constructor(private readonly o: InteractionOptions) {
@@ -65,11 +67,27 @@ export class Interaction {
     return this.o.getWorld().planBonds(pos.x, pos.y).map((b) => b.id);
   }
 
+  // Spawn a fresh loose block of `type` in drag mode: it follows the pointer as
+  // a ghost until the next click places it.
+  beginSpawn(type: BlockType): void {
+    const here = this.lastPointer
+      ? this.o.camera.s2w(this.lastPointer.x, this.lastPointer.y)
+      : { x: this.o.camera.x, y: this.o.camera.y };
+    const world = this.o.getWorld();
+    if (this.spawned) world.removeTraveller(this.spawned);
+    const t = world.addFreeTraveller(type, here.x, here.y);
+    world.removeTraveller(t);
+    this.spawned = t;
+    this.dragRender = { kind: "traveller", pos: here, type, id: t.id, plan: this.planFor(here) };
+    this.o.onChange();
+  }
+
   // Recompute the shown plan from the current world so a drop builds exactly
   // the beams the player can see. Called once per rendered frame.
   refreshDragPlan(): void {
-    if (!this.drag || !this.dragRender) return;
-    this.dragRender.plan = this.planFor(this.drag.pos);
+    if (!this.dragRender) return;
+    const pos = this.drag ? this.drag.pos : this.dragRender.pos;
+    this.dragRender.plan = this.planFor(pos);
   }
 
   private pick(wp: Vec2): Hit {
@@ -125,6 +143,17 @@ export class Interaction {
   }
 
   private onDown = (e: PointerEvent): void => {
+    if (this.spawned) {
+      // Place the block being spawned at the click point.
+      const p = this.local(e);
+      const pos = this.o.camera.s2w(p.x, p.y);
+      const plan = this.dragRender?.plan ?? [];
+      this.o.getWorld().buildTravellerAt(this.spawned, pos.x, pos.y, plan);
+      this.spawned = null;
+      this.dragRender = null;
+      this.o.onChange();
+      return;
+    }
     if (this.o.uiOpen()) {
       this.o.onDismissUi();
       return;
@@ -163,6 +192,11 @@ export class Interaction {
   };
 
   private onMove = (e: PointerEvent): void => {
+    this.lastPointer = this.local(e);
+    if (this.spawned && this.dragRender) {
+      const pos = this.o.camera.s2w(this.lastPointer.x, this.lastPointer.y);
+      this.dragRender = { kind: "traveller", pos, type: this.spawned.type, id: this.spawned.id, plan: this.planFor(pos) };
+    }
     if (!this.pointers.has(e.pointerId)) return;
     const prev = this.pointers.get(e.pointerId)!;
     const p = this.local(e);

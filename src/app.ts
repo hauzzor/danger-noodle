@@ -49,6 +49,7 @@ export class App {
         this.overlay.setMenu(this.menuOn);
         if (!this.menuOn) this.radial.close();
       },
+      onSpawn: (type) => this.interaction.beginSpawn(type),
       onRegenerate: () => this.regenerate(),
       onClear: () => this.clearCreature(),
       onSave: () => this.save(),
