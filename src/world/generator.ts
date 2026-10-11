@@ -28,6 +28,10 @@ export function createStarterCreature(world: World): void {
     const bond = world.randomActiveBond();
     if (bond >= 0) world.spawnTravellerOnBond(bond, "basic");
   }
+
+  // One generator loose block rides the starter body from the start.
+  const genBond = world.randomActiveBond();
+  if (genBond >= 0) world.spawnTravellerOnBond(genBond, "generator");
 }
 
 export function createWorld(seed: number): World {
