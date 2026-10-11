@@ -148,6 +148,9 @@ export class Interaction {
         this.drag = { kind: "blob", blob: hit.blob, pos: wp, origin };
         this.dragRender = { kind: "blob", pos: wp, type: hit.blob.type, id: hit.blob.id, plan: this.planFor(wp) };
       } else if (hit.kind === "traveller") {
+        // Remove the loose block from the structure immediately; it now lives
+        // only in the player's hand (ghost mode) until dropped.
+        this.o.getWorld().removeTraveller(hit.traveller);
         this.drag = { kind: "traveller", traveller: hit.traveller, pos: wp };
         this.dragRender = { kind: "traveller", pos: wp, type: hit.traveller.type, id: hit.traveller.id, plan: this.planFor(wp) };
       }
@@ -201,7 +204,12 @@ export class Interaction {
     if (this.drag) {
       const world = this.o.getWorld();
       if (this.drag.kind === "traveller" && this.drag.traveller) {
-        if (moved) world.buildTravellerAt(this.drag.traveller, this.drag.pos.x, this.drag.pos.y, plan);
+        if (moved) {
+          world.buildTravellerAt(this.drag.traveller, this.drag.pos.x, this.drag.pos.y, plan);
+        } else {
+          // A plain click: put the loose block back where it was.
+          world.travellers.push(this.drag.traveller);
+        }
       } else if (this.drag.kind === "blob" && this.drag.blob) {
         const blob = this.drag.blob;
         if (moved) {
