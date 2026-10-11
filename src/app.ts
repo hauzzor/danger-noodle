@@ -105,8 +105,8 @@ export class App {
 
   private resetView(): void {
     this.camera.x = 0;
-    this.camera.y = -4;
-    this.camera.zoom = 40;
+    this.camera.y = -8;
+    this.camera.zoom = 20;
   }
 
   private save(): void {

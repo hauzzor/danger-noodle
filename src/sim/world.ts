@@ -1,8 +1,8 @@
 import { groundY } from "./terrain";
 import { updateTravellers } from "./travel";
+import { segmentsCross } from "./geometry";
+import { BLOB_RADIUS, COLLECTIBLE_RADIUS, MAX_BOND_DIST, MIN_BOND_DIST } from "./units";
 import type { Blob, BlockType, Bond, Collectible, Neighbor, Traveller, Vec2 } from "./types";
-
-export const MAX_STRAND = 1.5;
 
 export class World {
   blobs: Blob[] = [];
@@ -24,7 +24,7 @@ export class World {
     return this.nextId++;
   }
 
-  addBlob(type: BlockType, x: number, y: number, radius = 0.24): Blob {
+  addBlob(type: BlockType, x: number, y: number, radius = BLOB_RADIUS): Blob {
     const blob: Blob = {
       id: this.blobs.length + 1,
       type,
@@ -57,10 +57,41 @@ export class World {
     const existing = this.adj[a.id - 1]?.some((n) => n.other === b.id);
     if (existing) return null;
     const rest = Math.hypot(b.x - a.x, b.y - a.y);
+    if (rest < MIN_BOND_DIST || rest > MAX_BOND_DIST) return null;
+    if (this.crossesExisting(a.x, a.y, b.x, b.y, [a.id - 1, b.id - 1])) return null;
     const id = this.bonds.length;
     this.bonds.push({ a: a.id - 1, b: b.id - 1, rest, stiffness, active: true });
     this.rebuildAdjacency();
     return id;
+  }
+
+  // True if the segment (x1,y1)-(x2,y2) properly crosses any active bond whose
+  // endpoints are not in `exclude` (indices).
+  private crossesExisting(x1: number, y1: number, x2: number, y2: number, exclude: number[]): boolean {
+    for (const bond of this.bonds) {
+      if (!bond.active) continue;
+      if (exclude.includes(bond.a) || exclude.includes(bond.b)) continue;
+      const a = this.blobs[bond.a];
+      const b = this.blobs[bond.b];
+      if (!a || !b || a.removed || b.removed) continue;
+      if (segmentsCross({ x: x1, y: y1 }, { x: x2, y: y2 }, { x: a.x, y: a.y }, { x: b.x, y: b.y })) return true;
+    }
+    return false;
+  }
+
+  // Blocks that a hypothetical new block at (x, y) could legally bond to:
+  // within the [min, max] unit range, with spare bond slots, and without the
+  // new beam crossing an existing beam. Sorted nearest-first.
+  previewCandidates(x: number, y: number): Blob[] {
+    const result: Blob[] = [];
+    for (const o of this.activeBlobs()) {
+      if (this.degree(o) >= this.maxBondsPerBlob) continue;
+      const d = Math.hypot(o.x - x, o.y - y);
+      if (d < MIN_BOND_DIST || d > MAX_BOND_DIST) continue;
+      if (this.crossesExisting(x, y, o.x, o.y, [o.id - 1])) continue;
+      result.push(o);
+    }
+    return result.sort((p, q) => Math.hypot(p.x - x, p.y - y) - Math.hypot(q.x - x, q.y - y));
   }
 
   degree(b: Blob): number {
@@ -101,14 +132,8 @@ export class World {
     this.travellers = this.travellers.filter((x) => x !== t);
   }
 
-  nearbyBlobs(x: number, y: number, within: number): Blob[] {
-    return this.activeBlobs()
-      .filter((o) => Math.hypot(o.x - x, o.y - y) <= within)
-      .sort((p, q) => Math.hypot(p.x - x, p.y - y) - Math.hypot(q.x - x, q.y - y));
-  }
-
   buildTravellerAt(t: Traveller, x: number, y: number): Blob | null {
-    const near = this.nearbyBlobs(x, y, MAX_STRAND).filter((o) => this.degree(o) < this.maxBondsPerBlob);
+    const near = this.previewCandidates(x, y);
     if (near.length === 0) {
       this.collectibles.push({
         id: this.newId(),
@@ -117,13 +142,13 @@ export class World {
         y,
         px: x,
         py: y,
-        radius: 0.22,
+        radius: COLLECTIBLE_RADIUS,
         collected: false,
       });
       this.removeTraveller(t);
       return null;
     }
-    const blob = this.addBlob(t.type, x, y, 0.24);
+    const blob = this.addBlob(t.type, x, y, BLOB_RADIUS);
     for (const o of near) {
       if (this.degree(blob) >= this.maxBondsPerBlob) break;
       this.addBond(blob, o);

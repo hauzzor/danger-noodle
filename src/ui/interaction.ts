@@ -1,4 +1,5 @@
 import type { Camera } from "../engine/camera";
+import { units } from "../sim/units";
 import type { Blob, BlockType, Traveller, Vec2 } from "../sim/types";
 import type { World } from "../sim/world";
 
@@ -21,11 +22,12 @@ export interface DragRender {
   kind: "blob" | "traveller";
   pos: Vec2;
   type: BlockType;
+  id: number;
 }
 
-const TRAVELLER_PICK = 0.22;
-const BLOB_PICK = 0.5;
-const MAX_DRAG = 1.5;
+const TRAVELLER_PICK = units(0.24);
+const BLOB_PICK = units(0.6);
+const MAX_DRAG = units(3);
 
 export class Interaction {
   dragRender: DragRender | null = null;
@@ -131,7 +133,7 @@ export class Interaction {
         this.o.camera.panScreen(p.x - prev.x, p.y - prev.y);
       } else if (this.drag) {
         this.drag.pos = this.o.camera.s2w(p.x, p.y);
-        this.dragRender = { kind: this.drag.kind, pos: this.drag.pos, type: this.dragType() };
+        this.dragRender = { kind: this.drag.kind, pos: this.drag.pos, type: this.dragType(), id: this.drag.blob?.id ?? this.drag.traveller?.id ?? 0 };
       }
     }
   };
