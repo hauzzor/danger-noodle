@@ -155,7 +155,7 @@ body {
   flex-direction: column;
   gap: 6px;
   padding: 8px;
-  width: 132px;
+  width: 176px;
   background: var(--panel);
   border: 1px solid var(--border);
   border-radius: 12px;
@@ -172,4 +172,29 @@ body {
   color: var(--text);
   font-size: 14px;
   text-align: left;
+}
+
+#ui .radial-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 6px 10px;
+  font-size: 13px;
+  color: var(--text);
+}
+
+#ui .radial-label {
+  color: var(--muted);
+}
+
+#ui .radial-row input[type="range"] {
+  width: 84px;
+  accent-color: var(--accent);
+}
+
+#ui .radial-row input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--accent);
 }

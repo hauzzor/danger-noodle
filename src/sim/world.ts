@@ -1,14 +1,17 @@
 import { groundY } from "./terrain";
 import { updateTravellers } from "./travel";
 import { closestOnSegment, segmentsCross, segSegClosest } from "./geometry";
-import { BEAM_RADIUS, BLOB_RADIUS, COLLECTIBLE_RADIUS, MAX_BOND_DIST, MIN_BOND_DIST } from "./units";
-import type { Blob, BlockType, Bond, Collectible, Neighbor, Traveller, Vec2 } from "./types";
+import { BEAM_RADIUS, BLOB_RADIUS, MAX_BOND_DIST, MIN_BOND_DIST, TRAVELLER_RADIUS } from "./units";
+import type { Blob, BlockType, Bond, Neighbor, Pulse, Traveller, Vec2 } from "./types";
+
+export const HOP_TIME = 0.12;
+export const MAX_HOPS = 42;
 
 export class World {
   blobs: Blob[] = [];
   bonds: Bond[] = [];
   travellers: Traveller[] = [];
-  collectibles: Collectible[] = [];
+  pulses: Pulse[] = [];
   time = 0;
 
   gravity = 40;
@@ -19,6 +22,7 @@ export class World {
 
   private adj: Neighbor[][] = [];
   private nextId = 1;
+  private nextPulse = 1;
 
   newId(): number {
     return this.nextId++;
@@ -37,6 +41,9 @@ export class World {
       onGround: false,
       held: false,
       removed: false,
+      emitOn: false,
+      emitInterval: 1.5,
+      emitTimer: 0,
     };
     this.blobs.push(blob);
     this.rebuildAdjacency();
@@ -190,17 +197,9 @@ export class World {
     const forced = planIds !== undefined;
     const near = planIds ? this.resolveTargets(planIds) : this.planBonds(x, y);
     if (near.length === 0) {
-      this.collectibles.push({
-        id: this.newId(),
-        type: t.type,
-        x,
-        y,
-        px: x,
-        py: y,
-        radius: COLLECTIBLE_RADIUS,
-        collected: false,
-      });
-      this.removeTraveller(t);
+      // No beams: the block becomes a loose traveller that falls and waits.
+      this.makeFree(t, x, y);
+      this.settleVelocities();
       return null;
     }
     const blob = this.addBlob(t.type, x, y, BLOB_RADIUS);
@@ -236,6 +235,13 @@ export class World {
     blob.px = x;
     blob.py = y;
     const near = planIds ? this.resolveTargets(planIds, blob) : this.planBonds(x, y);
+    if (near.length === 0) {
+      // No beams: the block becomes a loose traveller that falls and waits.
+      const type = blob.type;
+      this.removeBlob(blob.id);
+      this.addFreeTraveller(type, x, y);
+      return;
+    }
     blob.held = false;
     this.rebuildAdjacency();
     for (const o of near) {
@@ -292,9 +298,48 @@ export class World {
   }
 
   travellerPos(t: Traveller): Vec2 {
+    if (!t.attached) return { x: t.x, y: t.y };
     const a = this.blobs[t.from];
     const b = this.blobs[t.to];
     return { x: a.x + (b.x - a.x) * t.t, y: a.y + (b.y - a.y) * t.t };
+  }
+
+  private makeFree(t: Traveller, x: number, y: number): void {
+    t.attached = false;
+    t.x = x;
+    t.y = y;
+    t.px = x;
+    t.py = y;
+    t.radius = t.radius || TRAVELLER_RADIUS;
+    t.from = -1;
+    t.to = -1;
+    t.bond = -1;
+    t.t = 0;
+    t.speed = 0;
+    t.recent = [];
+    if (!this.travellers.includes(t)) this.travellers.push(t);
+  }
+
+  // A loose block lying on the ground, waiting to be picked up.
+  addFreeTraveller(type: BlockType, x: number, y: number): Traveller {
+    const t: Traveller = {
+      id: this.newId(),
+      type,
+      attached: false,
+      x,
+      y,
+      px: x,
+      py: y,
+      radius: TRAVELLER_RADIUS,
+      from: -1,
+      to: -1,
+      bond: -1,
+      t: 0,
+      speed: 0,
+      recent: [],
+    };
+    this.travellers.push(t);
+    return t;
   }
 
   spawnTravellerOnBond(bondIndex: number, type: BlockType): Traveller | null {
@@ -304,6 +349,12 @@ export class World {
     const t: Traveller = {
       id: this.newId(),
       type,
+      attached: true,
+      x: 0,
+      y: 0,
+      px: 0,
+      py: 0,
+      radius: TRAVELLER_RADIUS,
       from: forward ? bond.a : bond.b,
       to: forward ? bond.b : bond.a,
       bond: bondIndex,
@@ -334,23 +385,6 @@ export class World {
     return this.spawnTravellerOnBond(best, type);
   }
 
-  collect(): void {
-    for (const c of this.collectibles) {
-      if (c.collected) continue;
-      for (const b of this.blobs) {
-        if (b.removed || b.held) continue;
-        if (Math.hypot(b.x - c.x, b.y - c.y) <= b.radius + c.radius) {
-          c.collected = true;
-          this.spawnTravellerNear(b.x, b.y, c.type);
-          break;
-        }
-      }
-    }
-    if (this.collectibles.some((c) => c.collected)) {
-      this.collectibles = this.collectibles.filter((c) => !c.collected);
-    }
-  }
-
   step(dt: number): void {
     this.time += dt;
     this.integrate(dt);
@@ -359,8 +393,24 @@ export class World {
       this.solveCollisions();
     }
     this.collide();
-    this.collect();
+    this.reconcileTravellers();
     updateTravellers(this, dt);
+    this.updateEmitters(dt);
+    this.updatePulses(dt);
+  }
+
+  // Attached travellers whose beam is gone become free and fall.
+  private reconcileTravellers(): void {
+    for (const t of this.travellers) {
+      if (!t.attached) continue;
+      const bond = this.bonds[t.bond];
+      const a = this.blobs[t.from];
+      const b = this.blobs[t.to];
+      if (!bond || !bond.active || !a || !b || a.removed || b.removed) {
+        const pos = this.travellerPos(t);
+        this.makeFree(t, pos.x, pos.y);
+      }
+    }
   }
 
   private integrate(dt: number): void {
@@ -374,13 +424,66 @@ export class World {
       b.x += vx;
       b.y += vy + this.gravity * dt2;
     }
-    for (const c of this.collectibles) {
-      const vx = (c.x - c.px) * this.damping;
-      const vy = (c.y - c.py) * this.damping;
-      c.px = c.x;
-      c.py = c.y;
-      c.x += vx;
-      c.y += vy + this.gravity * dt2;
+    for (const t of this.travellers) {
+      if (t.attached) continue;
+      const vx = (t.x - t.px) * this.damping;
+      const vy = (t.y - t.py) * this.damping;
+      t.px = t.x;
+      t.py = t.y;
+      t.x += vx;
+      t.y += vy + this.gravity * dt2;
+    }
+  }
+
+  private emitSignal(source: Blob): void {
+    const hopDist = new Map<number, number>();
+    const start = source.id - 1;
+    hopDist.set(start, 0);
+    const queue = [start];
+    let head = 0;
+    while (head < queue.length) {
+      const node = queue[head++];
+      const d = hopDist.get(node)!;
+      if (d >= MAX_HOPS) continue;
+      for (const n of this.neighbors(node)) {
+        if (!hopDist.has(n.other)) {
+          hopDist.set(n.other, d + 1);
+          queue.push(n.other);
+        }
+      }
+    }
+    if (this.pulses.length > 200) this.pulses.shift();
+    this.pulses.push({
+      id: this.nextPulse++,
+      source: source.id,
+      age: 0,
+      hopTime: HOP_TIME,
+      maxHops: MAX_HOPS,
+      hopDist,
+      delivered: new Set(),
+    });
+  }
+
+  private updateEmitters(dt: number): void {
+    for (const b of this.blobs) {
+      if (b.removed || b.held) continue;
+      if (b.type !== "generator" || !b.emitOn || b.emitInterval <= 0) continue;
+      b.emitTimer += dt;
+      while (b.emitTimer >= b.emitInterval) {
+        b.emitTimer -= b.emitInterval;
+        this.emitSignal(b);
+      }
+    }
+  }
+
+  private updatePulses(dt: number): void {
+    for (const pulse of this.pulses) pulse.age += dt;
+    this.pulses = this.pulses.filter((p) => p.age / p.hopTime <= p.maxHops + 1);
+    for (const pulse of this.pulses) {
+      for (const [node, hops] of pulse.hopDist) {
+        if (pulse.delivered.has(node)) continue;
+        if (pulse.age >= hops * pulse.hopTime) pulse.delivered.add(node);
+      }
     }
   }
 
@@ -523,14 +626,15 @@ export class World {
         b.y = res.y;
       }
     }
-    for (const c of this.collectibles) {
-      const res = this.collideCircle(c.x, c.y, c.radius);
+    for (const t of this.travellers) {
+      if (t.attached) continue;
+      const res = this.collideCircle(t.x, t.y, t.radius);
       if (res.onGround) {
-        const vx = c.x - c.px;
-        c.px = c.x - vx * this.groundFriction;
-        c.py = res.y;
+        const vx = t.x - t.px;
+        t.px = t.x - vx * this.groundFriction;
+        t.py = res.y;
       }
-      c.y = res.y;
+      t.y = res.y;
     }
   }
 }

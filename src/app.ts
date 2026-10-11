@@ -3,7 +3,7 @@ import { GameLoop } from "./engine/loop";
 import { Renderer } from "./render/renderer";
 import { Interaction } from "./ui/interaction";
 import { createOverlay, type Overlay } from "./ui/overlay";
-import { createRadial, type Radial } from "./ui/radial";
+import { createRadial, type Radial, type RadialItem } from "./ui/radial";
 import { createWorld, createStarterCreature } from "./world/generator";
 import { createProgress, type Progress } from "./game/state";
 import { deserialize, exportSnapshot, importSnapshot, loadSlot, saveSlot, serialize } from "./persistence/save";
@@ -94,12 +94,34 @@ export class App {
     if (!this.menuOn) return;
     const blob = this.world.getBlob(blobId);
     if (!blob) return;
-    this.radial.open(screen.x, screen.y, [
-      {
-        label: "Delete",
-        onClick: () => this.world.removeBlob(blob.id),
-      },
-    ]);
+    const items: RadialItem[] = [];
+    if (blob.type === "generator") {
+      items.push({
+        kind: "toggle",
+        label: "Emit",
+        value: blob.emitOn,
+        onChange: (v) => {
+          blob.emitOn = v;
+        },
+      });
+      items.push({
+        kind: "slider",
+        label: "Interval (s)",
+        value: blob.emitInterval,
+        min: 0.1,
+        max: 5,
+        step: 0.1,
+        onChange: (v) => {
+          blob.emitInterval = v;
+        },
+      });
+    }
+    items.push({
+      kind: "button",
+      label: "Delete",
+      onClick: () => this.world.removeBlob(blob.id),
+    });
+    this.radial.open(screen.x, screen.y, items);
   }
 
   private regenerate(): void {
@@ -111,7 +133,8 @@ export class App {
 
   private clearCreature(): void {
     for (const b of this.world.activeBlobs()) this.world.removeBlob(b.id);
-    this.world.travellers = [];
+    // Keep scattered loose blocks; only the creature and its riders go.
+    this.world.travellers = this.world.travellers.filter((t) => !t.attached);
     createStarterCreature(this.world);
     this.resetView();
     this.overlay.toast("Creature reset to starter");
@@ -165,7 +188,8 @@ export class App {
         blobs: this.world.activeBlobs().length,
         bonds: this.world.bonds.filter((b) => b.active).length,
         travellers: this.world.travellers.length,
-        collectibles: this.world.collectibles.length,
+        loose: this.world.travellers.filter((t) => !t.attached).length,
+        pulses: this.world.pulses.length,
       }),
       regenerate: (): void => this.regenerate(),
       clearCreature: (): void => this.clearCreature(),

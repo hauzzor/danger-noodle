@@ -6,7 +6,7 @@
 export const UNIT = 1.0;
 
 export const BLOB_RADIUS = 0.5 * UNIT;
-export const COLLECTIBLE_RADIUS = 0.45 * UNIT;
+export const TRAVELLER_RADIUS = 0.35 * UNIT;
 
 // Half-thickness of a beam treated as a solid capsule for collisions.
 export const BEAM_RADIUS = 0.15 * UNIT;

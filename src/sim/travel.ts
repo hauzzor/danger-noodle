@@ -20,6 +20,7 @@ function edgeLength(world: World, t: Traveller): number {
 
 export function updateTravellers(world: World, dt: number): void {
   for (const t of world.travellers) {
+    if (!t.attached) continue;
     t.t += (t.speed * dt) / edgeLength(world, t);
 
     let guard = 0;

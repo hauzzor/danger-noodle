@@ -1,6 +1,5 @@
 import { mulberry32 } from "../engine/rng";
 import { groundY } from "../sim/terrain";
-import { COLLECTIBLE_RADIUS } from "../sim/units";
 import { World } from "../sim/world";
 
 const SPAWN = { x: -1.8, y: -10 };
@@ -35,19 +34,11 @@ export function createWorld(seed: number): World {
   const world = new World();
   const rand = mulberry32(seed);
 
-  let x = 20;
+  let x = 8;
   while (x < 600) {
     const cy = groundY(x) - 1.0;
-    world.collectibles.push({
-      id: world.newId(),
-      type: "basic",
-      x,
-      y: cy,
-      px: x,
-      py: cy,
-      radius: COLLECTIBLE_RADIUS,
-      collected: false,
-    });
+    const type = rand() < 0.2 ? "generator" : "basic";
+    world.addFreeTraveller(type, x, cy);
     x += 16 + rand() * 24;
   }
 

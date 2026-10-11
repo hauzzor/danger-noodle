@@ -15,15 +15,26 @@ export interface Snapshot {
     px: number;
     py: number;
     radius: number;
+    emitOn: boolean;
+    emitInterval: number;
+    emitTimer: number;
   }[];
   bonds: { a: number; b: number; rest: number; stiffness: number }[];
-  travellers: { type: BlockType; from: number; to: number; t: number; speed: number }[];
-  collectibles: { type: BlockType; x: number; y: number; radius: number }[];
+  travellers: {
+    type: BlockType;
+    attached: boolean;
+    from?: number;
+    to?: number;
+    t?: number;
+    speed?: number;
+    x?: number;
+    y?: number;
+  }[];
 }
 
 export function serialize(world: World, progress: Progress): Snapshot {
   return {
-    version: 3,
+    version: 4,
     timestamp: Date.now(),
     progress: { ...progress },
     time: world.time,
@@ -35,6 +46,9 @@ export function serialize(world: World, progress: Progress): Snapshot {
       px: b.px,
       py: b.py,
       radius: b.radius,
+      emitOn: b.emitOn,
+      emitInterval: b.emitInterval,
+      emitTimer: b.emitTimer,
     })),
     bonds: world.bonds
       .filter((bond) => bond.active)
@@ -44,19 +58,11 @@ export function serialize(world: World, progress: Progress): Snapshot {
         rest: bond.rest,
         stiffness: bond.stiffness,
       })),
-    travellers: world.travellers.map((t) => ({
-      type: t.type,
-      from: world.blobs[t.from].id,
-      to: world.blobs[t.to].id,
-      t: t.t,
-      speed: t.speed,
-    })),
-    collectibles: world.collectibles.map((c) => ({
-      type: c.type,
-      x: c.x,
-      y: c.y,
-      radius: c.radius,
-    })),
+    travellers: world.travellers.map((t) =>
+      t.attached
+        ? { type: t.type, attached: true, from: world.blobs[t.from].id, to: world.blobs[t.to].id, t: t.t, speed: t.speed }
+        : { type: t.type, attached: false, x: t.x, y: t.y },
+    ),
   };
 }
 
@@ -66,9 +72,12 @@ export function deserialize(data: Snapshot): { world: World; progress: Progress 
 
   const idMap = new Map<number, number>();
   for (const bd of data.blobs) {
-    const blob = world.addBlob("basic", bd.x, bd.y, bd.radius);
+    const blob = world.addBlob(bd.type ?? "basic", bd.x, bd.y, bd.radius);
     blob.px = bd.px;
     blob.py = bd.py;
+    blob.emitOn = bd.emitOn ?? false;
+    blob.emitInterval = bd.emitInterval ?? 1.5;
+    blob.emitTimer = bd.emitTimer ?? 0;
     idMap.set(bd.id, blob.id);
   }
 
@@ -78,37 +87,35 @@ export function deserialize(data: Snapshot): { world: World; progress: Progress 
     if (a && b) world.restoreBond(a, b, bond.rest, bond.stiffness);
   }
 
-  for (const t of data.travellers) {
-    const fromId = idMap.get(t.from);
-    const toId = idMap.get(t.to);
-    if (fromId == null || toId == null) continue;
-    const bondIndex = world.findBondIndex(fromId, toId);
-    if (bondIndex < 0) continue;
-    const bond = world.bonds[bondIndex];
-    const traveller: Traveller = {
-      id: world.newId(),
-      type: "basic",
-      from: bond.a,
-      to: bond.b,
-      bond: bondIndex,
-      t: t.t,
-      speed: t.speed,
-      recent: [],
-    };
-    world.travellers.push(traveller);
-  }
-
-  for (const c of data.collectibles ?? []) {
-    world.collectibles.push({
-      id: world.newId(),
-      type: "basic",
-      x: c.x,
-      y: c.y,
-      px: c.x,
-      py: c.y,
-      radius: c.radius,
-      collected: false,
-    });
+  for (const t of data.travellers ?? []) {
+    const type: BlockType = t.type ?? "basic";
+    if (t.attached) {
+      const fromId = idMap.get(t.from ?? -1);
+      const toId = idMap.get(t.to ?? -1);
+      if (fromId == null || toId == null) continue;
+      const bondIndex = world.findBondIndex(fromId, toId);
+      if (bondIndex < 0) continue;
+      const bond = world.bonds[bondIndex];
+      const traveller: Traveller = {
+        id: world.newId(),
+        type,
+        attached: true,
+        x: 0,
+        y: 0,
+        px: 0,
+        py: 0,
+        radius: 0,
+        from: bond.a,
+        to: bond.b,
+        bond: bondIndex,
+        t: t.t ?? 0,
+        speed: t.speed ?? 1.4,
+        recent: [],
+      };
+      world.travellers.push(traveller);
+    } else {
+      world.addFreeTraveller(type, t.x ?? 0, t.y ?? 0);
+    }
   }
 
   return { world, progress: { seed: data.progress?.seed ?? Math.floor(Math.random() * 1e9) } };

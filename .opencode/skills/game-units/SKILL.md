@@ -33,11 +33,11 @@ world units), it refers to this game unit — not to pixels, metres, or tiles.
 | --------------------- | ----- | ---------------------------------------- |
 | `UNIT`                | 1.0   | world length of one game unit            |
 | `BLOB_RADIUS`         | 0.5   | basic block radius (diameter = 1 unit)   |
+| `TRAVELLER_RADIUS`    | 0.35  | loose block (traveller) radius           |
 | `MIN_BOND_DIST`       | 2     | shortest allowed beam                    |
 | `MAX_BOND_DIST`       | 3     | longest allowed beam (three diameters)   |
-| collectible radius    | 0.45  |                                          |
-| traveller pick radius | 0.24  | interaction hit radius                   |
-| blob pick radius      | 0.6   | interaction hit radius                   |
+| traveller pick radius | 0.24  | attached traveller hit radius            |
+| blob pick radius      | 0.6   | block / free-traveller hit radius        |
 | beam pick tolerance   | 0.5   | grab a block by pressing a beam          |
 
 ## When editing

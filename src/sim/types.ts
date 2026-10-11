@@ -1,4 +1,4 @@
-export type BlockType = "basic";
+export type BlockType = "basic" | "generator";
 
 export interface Blob {
   id: number;
@@ -12,6 +12,9 @@ export interface Blob {
   onGround: boolean;
   held: boolean;
   removed: boolean;
+  emitOn: boolean;
+  emitInterval: number;
+  emitTimer: number;
 }
 
 export interface Bond {
@@ -25,6 +28,14 @@ export interface Bond {
 export interface Traveller {
   id: number;
   type: BlockType;
+  // Attached travellers ride a beam (from/to/bond/t). Free travellers lie on
+  // the ground with their own physics (x/y/px/py).
+  attached: boolean;
+  x: number;
+  y: number;
+  px: number;
+  py: number;
+  radius: number;
   from: number;
   to: number;
   bond: number;
@@ -33,15 +44,14 @@ export interface Traveller {
   recent: number[];
 }
 
-export interface Collectible {
+export interface Pulse {
   id: number;
-  type: BlockType;
-  x: number;
-  y: number;
-  px: number;
-  py: number;
-  radius: number;
-  collected: boolean;
+  source: number;
+  age: number;
+  hopTime: number;
+  maxHops: number;
+  hopDist: Map<number, number>;
+  delivered: Set<number>;
 }
 
 export interface Neighbor {

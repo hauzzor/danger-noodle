@@ -2,7 +2,7 @@ import { Camera } from "../engine/camera";
 import { groundY } from "../sim/terrain";
 import { BLOB_RADIUS } from "../sim/units";
 import type { World } from "../sim/world";
-import type { Blob } from "../sim/types";
+import type { Blob, BlockType } from "../sim/types";
 import type { DragRender } from "../ui/interaction";
 
 const BG_TOP = "#103a22";
@@ -42,10 +42,10 @@ export class Renderer {
 
     this.drawBackground();
     this.drawGround();
-    this.drawCollectibles(world);
     this.drawBonds(world);
     this.drawBlobs(world);
     this.drawTravellers(world);
+    this.drawPulses(world);
     if (drag) this.drawGhost(world, drag);
 
     ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -56,7 +56,7 @@ export class Renderer {
   }
 
   private hue(blob: Blob): number {
-    return 142 + (((blob.id * 47) % 13) - 6);
+    return blob.type === "generator" ? 2 : 142 + (((blob.id * 47) % 13) - 6);
   }
 
   private blockColor(blob: Blob): string {
@@ -102,22 +102,6 @@ export class Renderer {
     ctx.strokeStyle = GROUND_EDGE;
     ctx.lineWidth = Math.max(2, camera.zoom * 0.06);
     ctx.stroke();
-  }
-
-  private drawCollectibles(world: World): void {
-    const { ctx, camera } = this;
-    for (const c of world.collectibles) {
-      const p = this.P(c.x, c.y);
-      const r = c.radius * camera.zoom;
-      ctx.beginPath();
-      ctx.arc(p.x, p.y, r * 1.6, 0, Math.PI * 2);
-      ctx.fillStyle = "rgba(120, 220, 150, 0.10)";
-      ctx.fill();
-      ctx.beginPath();
-      ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
-      ctx.fillStyle = "hsl(145, 52%, 55%)";
-      ctx.fill();
-    }
   }
 
   private drawBeam(pa: { x: number; y: number }, pb: { x: number; y: number }, colorA: string, colorB: string, alpha = 1): void {
@@ -180,23 +164,82 @@ export class Renderer {
     }
   }
 
+  private travellerHue(type: BlockType): number {
+    return type === "generator" ? 2 : 146;
+  }
+
   private drawTravellers(world: World): void {
     const { ctx, camera } = this;
     for (const t of world.travellers) {
       const pos = world.travellerPos(t);
       const p = this.P(pos.x, pos.y);
+      const hue = this.travellerHue(t.type);
+
+      if (!t.attached) {
+        // Free loose block lying on the ground, waiting to be picked up.
+        const r = t.radius * camera.zoom;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
+        ctx.fillStyle = `hsl(${hue}, 32%, 42%)`;
+        ctx.fill();
+        ctx.lineWidth = Math.max(1, r * 0.16);
+        ctx.strokeStyle = `hsl(${hue}, 30%, 28%)`;
+        ctx.stroke();
+        continue;
+      }
+
       const r = BLOB_RADIUS * camera.zoom * 0.55;
       ctx.beginPath();
       ctx.arc(p.x, p.y, r * 1.8, 0, Math.PI * 2);
-      ctx.fillStyle = "rgba(160, 240, 190, 0.08)";
+      ctx.fillStyle = `hsla(${hue}, 60%, 60%, 0.10)`;
       ctx.fill();
       ctx.beginPath();
       ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
-      ctx.fillStyle = "hsl(146, 55%, 58%)";
+      ctx.fillStyle = `hsl(${hue}, 60%, 58%)`;
       ctx.fill();
       ctx.lineWidth = Math.max(1, r * 0.25);
-      ctx.strokeStyle = "rgba(210, 255, 225, 0.6)";
+      ctx.strokeStyle = "rgba(230, 255, 240, 0.6)";
       ctx.stroke();
+    }
+  }
+
+  private drawPulses(world: World): void {
+    const { ctx, camera } = this;
+    for (const pulse of world.pulses) {
+      const front = pulse.age / pulse.hopTime;
+      const fade = Math.max(0, 1 - pulse.age / (pulse.maxHops * pulse.hopTime));
+      for (const bond of world.bonds) {
+        if (!bond.active) continue;
+        const da = pulse.hopDist.get(bond.a);
+        const db = pulse.hopDist.get(bond.b);
+        let parent: number;
+        let child: number;
+        let dparent: number;
+        if (da != null && db != null && db === da + 1) {
+          parent = bond.a;
+          child = bond.b;
+          dparent = da;
+        } else if (da != null && db != null && da === db + 1) {
+          parent = bond.b;
+          child = bond.a;
+          dparent = db;
+        } else {
+          continue;
+        }
+        const f = front - dparent;
+        if (f < 0 || f > 1) continue;
+        const a = world.blobs[parent];
+        const b = world.blobs[child];
+        if (!a || !b || a.removed || b.removed) continue;
+        const p = this.P(a.x + (b.x - a.x) * f, a.y + (b.y - a.y) * f);
+        const r = 0.14 * camera.zoom;
+        ctx.globalAlpha = fade;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
+        ctx.fillStyle = "#ff5b4a";
+        ctx.fill();
+        ctx.globalAlpha = 1;
+      }
     }
   }
 
@@ -214,6 +257,9 @@ export class Renderer {
       onGround: false,
       held: false,
       removed: false,
+      emitOn: false,
+      emitInterval: 1.5,
+      emitTimer: 0,
     };
 
     for (const id of drag.plan) {

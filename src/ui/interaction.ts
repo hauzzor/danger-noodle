@@ -76,11 +76,12 @@ export class Interaction {
     const world = this.o.getWorld();
 
     let bestT: Traveller | null = null;
-    let bestTD = TRAVELLER_PICK;
+    let bestTD = Infinity;
     for (const t of world.travellers) {
+      const pickR = t.attached ? TRAVELLER_PICK : BLOB_PICK;
       const p = world.travellerPos(t);
       const d = Math.hypot(p.x - wp.x, p.y - wp.y);
-      if (d < bestTD) {
+      if (d < pickR && d < bestTD) {
         bestTD = d;
         bestT = t;
       }
