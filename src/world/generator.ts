@@ -41,6 +41,10 @@ export function createStarterCreature(world: World): void {
     const bond = world.randomActiveBond();
     if (bond >= 0) world.spawnTravellerOnBond(bond, "contractor");
   }
+  for (let i = 0; i < 2; i++) {
+    const bond = world.randomActiveBond();
+    if (bond >= 0) world.spawnTravellerOnBond(bond, "grabber");
+  }
 }
 
 export function createWorld(seed: number): World {
@@ -51,7 +55,7 @@ export function createWorld(seed: number): World {
   while (x < 600) {
     const cy = groundY(x) - 1.0;
     const r = rand();
-    const type: BlockType = r < 0.15 ? "generator" : r < 0.3 ? "contractor" : "basic";
+    const type: BlockType = r < 0.15 ? "generator" : r < 0.3 ? "contractor" : r < 0.45 ? "grabber" : "basic";
     world.addFreeTraveller(type, x, cy);
     x += 16 + rand() * 24;
   }

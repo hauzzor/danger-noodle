@@ -59,6 +59,12 @@ export class World {
       contractTo: 0.5,
       contractTime: 1,
       releaseTime: 1,
+      grabbing: false,
+      grabTimer: 0,
+      grabX: 0,
+      grabY: 0,
+      grabForce: 0.5,
+      grabTime: 1,
     };
     this.blobs.push(blob);
     this.rebuildAdjacency();
@@ -418,6 +424,7 @@ export class World {
     for (let i = 0; i < this.iterations; i++) {
       this.solveConstraints();
       this.solveCollisions();
+      this.solveGrabbers();
     }
     this.collide();
     this.reconcileTravellers();
@@ -426,6 +433,26 @@ export class World {
     this.updateEmitters(dt);
     this.updatePulses(dt);
     this.updateContractors(dt);
+    this.updateGrabbers(dt);
+  }
+
+  // While grabbing, a block is anchored to where it grabbed (the ground), pulled
+  // back each solver pass by up to `grabForce` (0..1 of the way to the anchor).
+  private solveGrabbers(): void {
+    for (const b of this.blobs) {
+      if (b.removed || b.held || !b.grabbing) continue;
+      const k = Math.min(Math.max(b.grabForce, 0), 1);
+      b.x += (b.grabX - b.x) * k;
+      b.y += (b.grabY - b.y) * k;
+    }
+  }
+
+  private updateGrabbers(dt: number): void {
+    for (const b of this.blobs) {
+      if (b.removed || !b.grabbing) continue;
+      b.grabTimer += dt;
+      if (b.grabTimer >= Math.max(0.01, b.grabTime)) b.grabbing = false;
+    }
   }
 
   // Attached travellers whose beam is gone become free and fall.
@@ -592,15 +619,24 @@ export class World {
     }
   }
 
-  // A delivered signal starts a contractor's contraction; while one is already
-  // running, further signals are ignored. A contractor with a colour filter only
-  // reacts to accepted signal colours (empty filter = accept all).
+  // A delivered signal starts a contractor's contraction / a grabber's grip;
+  // while one is already running, further signals are ignored. A block with a
+  // colour filter only reacts to accepted signal colours (empty = accept all).
   private handleSignal(blob: Blob, color: number): void {
-    if (blob.type !== "contractor" || blob.contracting) return;
+    if (blob.type !== "contractor" && blob.type !== "grabber") return;
     if (blob.acceptColors.length > 0 && !blob.acceptColors.includes(color)) return;
-    blob.contracting = true;
-    blob.contractTimer = 0;
-    blob.contractAmount = 1;
+    if (blob.type === "contractor") {
+      if (blob.contracting) return;
+      blob.contracting = true;
+      blob.contractTimer = 0;
+      blob.contractAmount = 1;
+    } else {
+      if (blob.grabbing) return;
+      blob.grabbing = true;
+      blob.grabTimer = 0;
+      blob.grabX = blob.x;
+      blob.grabY = blob.y;
+    }
   }
 
   private updateContractors(dt: number): void {

@@ -21,7 +21,7 @@ export class App {
   private readonly interaction: Interaction;
   private readonly loop: GameLoop;
   private statusTick = 0;
-  private replaceOn = true;
+  private replaceOn = false;
   private menuOn = true;
   private applyAll = false;
 
@@ -209,6 +209,39 @@ export class App {
         step: 0.1,
         onChange: (v) => {
           this.setValue(blob, "releaseTime", v);
+        },
+      });
+    } else if (blob.type === "grabber") {
+      items.push({
+        kind: "palette",
+        label: "Accept",
+        colors: SIGNAL_PALETTE,
+        value: [...blob.acceptColors],
+        multi: true,
+        onChange: (v) => {
+          this.setValue(blob, "acceptColors", v);
+        },
+      });
+      items.push({
+        kind: "slider",
+        label: "Grab force",
+        value: blob.grabForce,
+        min: 0,
+        max: 1,
+        step: 0.05,
+        onChange: (v) => {
+          this.setValue(blob, "grabForce", v);
+        },
+      });
+      items.push({
+        kind: "slider",
+        label: "Duration (s)",
+        value: blob.grabTime,
+        min: 0.1,
+        max: 5,
+        step: 0.1,
+        onChange: (v) => {
+          this.setValue(blob, "grabTime", v);
         },
       });
     }

@@ -55,7 +55,7 @@ export function createOverlay(root: HTMLElement, handlers: OverlayHandlers): Ove
     replaceBtn.setAttribute("aria-pressed", String(on));
   };
   replaceBtn.addEventListener("click", handlers.onToggleReplace);
-  setReplace(true);
+  setReplace(false);
 
   const menuBtn = document.createElement("button");
   menuBtn.className = "btn toggle";

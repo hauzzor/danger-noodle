@@ -1,4 +1,4 @@
-export type BlockType = "basic" | "generator" | "contractor";
+export type BlockType = "basic" | "generator" | "contractor" | "grabber";
 
 export interface Blob {
   id: number;
@@ -26,6 +26,12 @@ export interface Blob {
   contractTo: number;
   contractTime: number;
   releaseTime: number;
+  grabbing: boolean;
+  grabTimer: number;
+  grabX: number;
+  grabY: number;
+  grabForce: number;
+  grabTime: number;
 }
 
 export interface Bond {

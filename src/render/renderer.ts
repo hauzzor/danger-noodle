@@ -59,6 +59,7 @@ export class Renderer {
   private hue(blob: Blob): number {
     if (blob.type === "generator") return 2;
     if (blob.type === "contractor") return 205;
+    if (blob.type === "grabber") return 40;
     return 142 + (((blob.id * 47) % 13) - 6);
   }
 
@@ -164,11 +165,11 @@ export class Renderer {
     for (const blob of world.activeBlobs()) {
       if (blob.held) continue;
       this.drawBlock(blob);
-      if (blob.contracting) this.drawContractGlow(blob);
+      if (blob.contracting || blob.grabbing) this.drawActiveGlow(blob);
     }
   }
 
-  private drawContractGlow(blob: Blob): void {
+  private drawActiveGlow(blob: Blob): void {
     const { ctx, camera } = this;
     const p = this.P(blob.x, blob.y);
     const r = blob.radius * camera.zoom;
@@ -183,6 +184,7 @@ export class Renderer {
   private travellerHue(type: BlockType): number {
     if (type === "generator") return 2;
     if (type === "contractor") return 205;
+    if (type === "grabber") return 40;
     return 146;
   }
 
@@ -289,6 +291,12 @@ export class Renderer {
       contractTo: 0.5,
       contractTime: 1,
       releaseTime: 1,
+      grabbing: false,
+      grabTimer: 0,
+      grabX: 0,
+      grabY: 0,
+      grabForce: 0.5,
+      grabTime: 1,
     };
 
     for (const id of drag.plan) {
