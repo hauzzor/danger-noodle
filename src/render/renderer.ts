@@ -8,10 +8,8 @@ import type { DragRender } from "../ui/interaction";
 const BG_TOP = "#103a22";
 const BG_MID = "#0a2718";
 const BG_BOTTOM = "#05160d";
-const PRESSURE_MAX = 1.5;
 
 export class Renderer {
-  showPressure = true;
   private ctx: CanvasRenderingContext2D;
   private dpr = 1;
 
@@ -40,7 +38,6 @@ export class Renderer {
     ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
 
     this.drawBackground();
-    if (this.showPressure) this.drawCompartments(world);
     this.drawBonds(world);
     this.drawBlobs(world);
     this.drawTravellers(world);
@@ -96,26 +93,6 @@ export class Renderer {
         ctx.fillStyle = `rgba(120, 220, 160, ${0.03 + a * 0.05})`;
         ctx.fill();
       }
-    }
-  }
-
-  private drawCompartments(world: World): void {
-    const { ctx } = this;
-    for (const c of world.compartments) {
-      if (c.verts.length < 3) continue;
-      ctx.beginPath();
-      for (let k = 0; k < c.verts.length; k++) {
-        const b = world.blobs[c.verts[k]];
-        const p = this.P(b.x, b.y);
-        if (k === 0) ctx.moveTo(p.x, p.y);
-        else ctx.lineTo(p.x, p.y);
-      }
-      ctx.closePath();
-      const t = Math.max(-1, Math.min(1, c.pressure / PRESSURE_MAX));
-      const hue = t >= 0 ? 140 * (1 - t) : 140 + 80 * -t;
-      const alpha = 0.1 + 0.32 * Math.min(1, Math.abs(t));
-      ctx.fillStyle = `hsla(${hue}, 70%, 55%, ${alpha})`;
-      ctx.fill();
     }
   }
 
