@@ -121,6 +121,7 @@ body {
 #ui .overlay-left .spawn.generator { border-left-color: #ff5b4a; }
 #ui .overlay-left .spawn.contractor { border-left-color: #5b9cff; }
 #ui .overlay-left .spawn.grabber { border-left-color: #ff9f43; }
+#ui .overlay-left .spawn.flagella { border-left-color: #d24fd2; }
 
 #ui .btn {
   padding: 6px 12px;

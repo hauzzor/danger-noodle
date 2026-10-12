@@ -1,4 +1,4 @@
-import type { BlockType } from "../sim/types";
+import { BLOCK_TYPES, type BlockType } from "../sim/types";
 
 export interface OverlayHandlers {
   onSpeed: (speed: number) => void;
@@ -76,12 +76,10 @@ export function createOverlay(root: HTMLElement, handlers: OverlayHandlers): Ove
 
   const leftBar = document.createElement("div");
   leftBar.className = "overlay-left";
-  const spawnDefs: [BlockType, string][] = [
-    ["basic", "Basic"],
-    ["generator", "Generator"],
-    ["contractor", "Contractor"],
-    ["grabber", "Grabber"],
-  ];
+  const spawnDefs: [BlockType, string][] = BLOCK_TYPES.map((type) => [
+    type,
+    type.charAt(0).toUpperCase() + type.slice(1),
+  ]);
   const spawnButtons = new Map<BlockType, HTMLButtonElement>();
   for (const [type, label] of spawnDefs) {
     const btn = document.createElement("button");

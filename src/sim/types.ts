@@ -1,4 +1,9 @@
-export type BlockType = "basic" | "generator" | "contractor" | "grabber" | "flagella";
+// All block types, in toolbar order. This is the single source of truth:
+// adding a type here also gives it a "Create" button in the left toolbar.
+export const BLOCK_TYPES = ["basic", "generator", "contractor", "grabber", "flagella"] as const;
+
+export type BlockType = (typeof BLOCK_TYPES)[number];
+
 
 export interface Blob {
   id: number;
