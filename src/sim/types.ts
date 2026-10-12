@@ -82,6 +82,9 @@ export interface Pulse {
   maxHops: number;
   hopDist: Map<number, number>;
   delivered: Set<number>;
+  hasDirection: boolean;
+  dirX: number;
+  dirY: number;
 }
 
 export interface Neighbor {

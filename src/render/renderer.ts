@@ -346,13 +346,31 @@ export class Renderer {
         const a = world.blobs[parent];
         const b = world.blobs[child];
         if (!a || !b || a.removed || b.removed) continue;
-        const p = this.P(a.x + (b.x - a.x) * f, a.y + (b.y - a.y) * f);
+        const wx = a.x + (b.x - a.x) * f;
+        const wy = a.y + (b.y - a.y) * f;
+        const p = this.P(wx, wy);
         const r = 0.14 * camera.zoom;
+        const col = signalCss(pulse.color);
         ctx.globalAlpha = fade;
         ctx.beginPath();
         ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
-        ctx.fillStyle = signalCss(pulse.color);
+        ctx.fillStyle = col;
         ctx.fill();
+        if (pulse.hasDirection) {
+          const tip = this.P(wx + pulse.dirX * 0.9, wy + pulse.dirY * 0.9);
+          const ang = Math.atan2(tip.y - p.y, tip.x - p.x);
+          const ah = r * 1.3;
+          ctx.strokeStyle = col;
+          ctx.lineWidth = Math.max(1, r * 0.45);
+          ctx.beginPath();
+          ctx.moveTo(p.x, p.y);
+          ctx.lineTo(tip.x, tip.y);
+          ctx.moveTo(tip.x, tip.y);
+          ctx.lineTo(tip.x - Math.cos(ang - 0.5) * ah, tip.y - Math.sin(ang - 0.5) * ah);
+          ctx.moveTo(tip.x, tip.y);
+          ctx.lineTo(tip.x - Math.cos(ang + 0.5) * ah, tip.y - Math.sin(ang + 0.5) * ah);
+          ctx.stroke();
+        }
         ctx.globalAlpha = 1;
       }
     }

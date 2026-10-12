@@ -551,7 +551,7 @@ export class World {
   }
 
   // `maxHops` is the maximum number of hops a single signal may spread.
-  private emitSignal(source: Blob, color = source.signalColor): void {
+  private emitSignal(source: Blob, color = source.signalColor, dir?: { x: number; y: number }): void {
     const maxHops = source.maxHops > 0 ? source.maxHops : MAX_HOPS;
     const hopDist = new Map<number, number>();
     const start = source.id - 1;
@@ -580,6 +580,9 @@ export class World {
       maxHops,
       hopDist,
       delivered: new Set(),
+      hasDirection: dir != null,
+      dirX: dir ? dir.x : 0,
+      dirY: dir ? dir.y : 0,
     });
   }
 
@@ -607,7 +610,7 @@ export class World {
         if (pulse.age >= hops * pulse.hopTime) {
           pulse.delivered.add(node);
           const blob = this.blobs[node];
-          if (blob && !blob.removed) this.handleSignal(blob, pulse.color);
+          if (blob && !blob.removed) this.handleSignal(blob, pulse.color, pulse);
         }
       }
     }
@@ -616,7 +619,7 @@ export class World {
   // A delivered signal starts a contractor's contraction / a grabber's grip;
   // while one is already running, further signals are ignored. A block with a
   // colour filter only reacts to accepted signal colours (empty = accept all).
-  private handleSignal(blob: Blob, color: number): void {
+  private handleSignal(blob: Blob, color: number, pulse?: Pulse): void {
     if (blob.type !== "contractor" && blob.type !== "grabber" && blob.type !== "flagella") return;
     if (blob.acceptColors.length > 0 && !blob.acceptColors.includes(color)) return;
     if (blob.type === "contractor") {
@@ -634,6 +637,16 @@ export class World {
       // flagella: kick inward (opposite the outward tail) and go active briefly.
       if (blob.firing) return;
       const a = this.flagellaAngle(blob);
+      // A directional signal only fires the flagella if it points the same way
+      // as the thrust vector (inward), within 60 degrees.
+      if (pulse && pulse.hasDirection) {
+        const thrust = a + Math.PI;
+        const sig = Math.atan2(pulse.dirY, pulse.dirX);
+        let diff = sig - thrust;
+        while (diff > Math.PI) diff -= Math.PI * 2;
+        while (diff < -Math.PI) diff += Math.PI * 2;
+        if (Math.abs(diff) > Math.PI / 3) return;
+      }
       const dirx = -Math.cos(a);
       const diry = -Math.sin(a);
       blob.px -= dirx * blob.impulse;
@@ -721,7 +734,7 @@ export class World {
         const ang = Math.acos(Math.max(-1, Math.min(1, (dx * dirx + dy * diry) / d)));
         if (ang > half) continue;
         if (!this.segmentClear(eye, t.x, t.y)) continue;
-        this.emitSignal(eye, TYPE_SIGNAL_COLOR[t.type] ?? 3);
+        this.emitSignal(eye, TYPE_SIGNAL_COLOR[t.type] ?? 3, { x: dx / d, y: dy / d });
       }
     }
   }
