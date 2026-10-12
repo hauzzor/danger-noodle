@@ -12,8 +12,6 @@ export const CHUNK = 30;
 const DRIFT = 0.2;
 // How long a flagella stays "active" (ignoring further signals) after firing.
 const FLAGELLA_FIRE_TIME = 0.5;
-// Distance at which an encoded-distance signal gives a flagella 1x strength.
-const FLAGELLA_SEE_REF = 6;
 
 export class World {
   blobs: Blob[] = [];
@@ -658,14 +656,8 @@ export class World {
       }
       const dirx = -Math.cos(a);
       const diry = -Math.sin(a);
-      // Fire harder the closer the seen block is (when distance is encoded).
-      const scale =
-        pulse && pulse.hasDistance && pulse.distance > 0
-          ? Math.min(4, Math.max(0.25, FLAGELLA_SEE_REF / pulse.distance))
-          : 1;
-      const mag = blob.impulse * scale;
-      blob.px -= dirx * mag;
-      blob.py -= diry * mag;
+      blob.px -= dirx * blob.impulse;
+      blob.py -= diry * blob.impulse;
       blob.firing = true;
       blob.fireTimer = 0;
     }
