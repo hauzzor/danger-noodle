@@ -641,15 +641,19 @@ export class World {
   // between its own beams (the most open side, i.e. outward from the structure),
   // plus the block's manual angle offset. The kick is applied the opposite way.
   flagellaAngle(b: Blob): number {
-    const nbrs = this.neighbors(b.id - 1);
-    const angles: number[] = [];
-    for (const n of nbrs) {
+    const others: Blob[] = [];
+    for (const n of this.neighbors(b.id - 1)) {
       const o = this.blobs[n.other];
-      if (!o || o.removed) continue;
-      angles.push(Math.atan2(o.y - b.y, o.x - b.x));
+      if (o && !o.removed) others.push(o);
     }
-    if (angles.length === 0) return b.angle;
-    angles.sort((p, q) => p - q);
+    return this.gapAngle(b.x, b.y, others) + b.angle;
+  }
+
+  // Middle direction of the largest empty angular gap between `others` around
+  // (x, y). Used for a flagella's outward tail (built blocks and ghost alike).
+  gapAngle(x: number, y: number, others: { x: number; y: number }[]): number {
+    if (others.length === 0) return 0;
+    const angles = others.map((o) => Math.atan2(o.y - y, o.x - x)).sort((p, q) => p - q);
     let bestGap = -1;
     let bestMid = angles[0];
     for (let i = 0; i < angles.length; i++) {
@@ -661,7 +665,7 @@ export class World {
         bestMid = (a0 + a1) / 2;
       }
     }
-    return bestMid + b.angle;
+    return bestMid;
   }
 
   private updateFlagellas(dt: number): void {

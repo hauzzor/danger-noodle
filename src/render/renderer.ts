@@ -339,7 +339,14 @@ export class Renderer {
       );
     }
     this.drawBlock(ghost, 0.5);
-    if (drag.type === "flagella") this.drawFlagellum(ghost, world.flagellaAngle(ghost), world.time, 0.5);
+    if (drag.type === "flagella") {
+      const others: { x: number; y: number }[] = [];
+      for (const id of drag.plan) {
+        const o = world.getBlob(id);
+        if (o) others.push(o);
+      }
+      this.drawFlagellum(ghost, world.gapAngle(drag.pos.x, drag.pos.y, others), world.time, 0.5);
+    }
 
     const p = this.P(drag.pos.x, drag.pos.y);
     const r = BLOB_RADIUS * camera.zoom;
