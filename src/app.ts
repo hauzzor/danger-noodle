@@ -381,6 +381,28 @@ export class App {
           this.setValue(blob, "period", v);
         },
       });
+      items.push({
+        kind: "slider",
+        label: "Signal speed",
+        value: blob.signalSpeed,
+        min: 1,
+        max: 30,
+        step: 1,
+        onChange: (v) => {
+          this.setValue(blob, "signalSpeed", v);
+        },
+      });
+      items.push({
+        kind: "slider",
+        label: "Max hops",
+        value: blob.maxHops,
+        min: 1,
+        max: 200,
+        step: 1,
+        onChange: (v) => {
+          this.setValue(blob, "maxHops", v);
+        },
+      });
     }
     items.push({
       kind: "button",
