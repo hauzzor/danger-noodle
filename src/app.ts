@@ -251,6 +251,39 @@ export class App {
           this.setValue(blob, "grabTime", v);
         },
       });
+    } else if (blob.type === "flagella") {
+      items.push({
+        kind: "slider",
+        label: "Angle",
+        value: Math.round((blob.angle * 180) / Math.PI),
+        min: 0,
+        max: 360,
+        step: 5,
+        onChange: (v) => {
+          this.setValue(blob, "angle", (v * Math.PI) / 180);
+        },
+      });
+      items.push({
+        kind: "slider",
+        label: "Impulse",
+        value: blob.impulse,
+        min: 0,
+        max: 20,
+        step: 0.5,
+        onChange: (v) => {
+          this.setValue(blob, "impulse", v);
+        },
+      });
+      items.push({
+        kind: "palette",
+        label: "Accept",
+        colors: SIGNAL_PALETTE,
+        value: [...blob.acceptColors],
+        multi: true,
+        onChange: (v) => {
+          this.setValue(blob, "acceptColors", v);
+        },
+      });
     }
     items.push({
       kind: "button",

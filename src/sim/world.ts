@@ -9,6 +9,8 @@ export const MAX_HOPS = 42;
 export const CHUNK = 30;
 // Gentle ambient flow strength (units/s^2) for the floating, gravity-free world.
 const DRIFT = 0.6;
+// How long a flagella stays "active" (ignoring further signals) after firing.
+const FLAGELLA_FIRE_TIME = 0.5;
 
 export class World {
   blobs: Blob[] = [];
@@ -67,6 +69,10 @@ export class World {
       grabY: 0,
       grabForce: 0.5,
       grabTime: 1,
+      angle: 0,
+      impulse: 6,
+      firing: false,
+      fireTimer: 0,
     };
     this.blobs.push(blob);
     this.rebuildAdjacency();
@@ -435,6 +441,7 @@ export class World {
     this.updatePulses(dt);
     this.updateContractors(dt);
     this.updateGrabbers(dt);
+    this.updateFlagellas(dt);
   }
 
   // While grabbing, a block is anchored to where it grabbed (the ground), pulled
@@ -604,19 +611,36 @@ export class World {
   // while one is already running, further signals are ignored. A block with a
   // colour filter only reacts to accepted signal colours (empty = accept all).
   private handleSignal(blob: Blob, color: number): void {
-    if (blob.type !== "contractor" && blob.type !== "grabber") return;
+    if (blob.type !== "contractor" && blob.type !== "grabber" && blob.type !== "flagella") return;
     if (blob.acceptColors.length > 0 && !blob.acceptColors.includes(color)) return;
     if (blob.type === "contractor") {
       if (blob.contracting) return;
       blob.contracting = true;
       blob.contractTimer = 0;
       blob.contractAmount = 1;
-    } else {
+    } else if (blob.type === "grabber") {
       if (blob.grabbing) return;
       blob.grabbing = true;
       blob.grabTimer = 0;
       blob.grabX = blob.x;
       blob.grabY = blob.y;
+    } else {
+      // flagella: kick inward (opposite the outward tail) and go active briefly.
+      if (blob.firing) return;
+      const dirx = -Math.cos(blob.angle);
+      const diry = -Math.sin(blob.angle);
+      blob.px -= dirx * blob.impulse;
+      blob.py -= diry * blob.impulse;
+      blob.firing = true;
+      blob.fireTimer = 0;
+    }
+  }
+
+  private updateFlagellas(dt: number): void {
+    for (const b of this.blobs) {
+      if (b.removed || !b.firing) continue;
+      b.fireTimer += dt;
+      if (b.fireTimer >= FLAGELLA_FIRE_TIME) b.firing = false;
     }
   }
 
@@ -803,7 +827,8 @@ export class World {
       const x = (cx + rand()) * CHUNK;
       const y = (cy + rand()) * CHUNK;
       const r = rand();
-      const type: BlockType = r < 0.15 ? "generator" : r < 0.3 ? "contractor" : r < 0.45 ? "grabber" : "basic";
+      const type: BlockType =
+        r < 0.12 ? "generator" : r < 0.24 ? "contractor" : r < 0.36 ? "grabber" : r < 0.48 ? "flagella" : "basic";
       this.addFreeTraveller(type, x, y);
     }
   }

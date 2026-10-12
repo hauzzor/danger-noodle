@@ -27,6 +27,8 @@ export interface Snapshot {
     releaseTime: number;
     grabForce: number;
     grabTime: number;
+    angle: number;
+    impulse: number;
   }[];
   bonds: { a: number; b: number; rest: number; stiffness: number }[];
   travellers: {
@@ -43,7 +45,7 @@ export interface Snapshot {
 
 export function serialize(world: World, progress: Progress): Snapshot {
   return {
-    version: 11,
+    version: 12,
     timestamp: Date.now(),
     progress: { ...progress },
     time: world.time,
@@ -67,6 +69,8 @@ export function serialize(world: World, progress: Progress): Snapshot {
       releaseTime: b.releaseTime,
       grabForce: b.grabForce,
       grabTime: b.grabTime,
+      angle: b.angle,
+      impulse: b.impulse,
     })),
     bonds: world.bonds
       .filter((bond) => bond.active)
@@ -106,6 +110,8 @@ export function deserialize(data: Snapshot): { world: World; progress: Progress 
     blob.releaseTime = bd.releaseTime ?? 1;
     blob.grabForce = bd.grabForce ?? 0.5;
     blob.grabTime = bd.grabTime ?? 1;
+    blob.angle = bd.angle ?? 0;
+    blob.impulse = bd.impulse ?? 6;
     idMap.set(bd.id, blob.id);
   }
 

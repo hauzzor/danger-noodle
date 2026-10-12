@@ -28,6 +28,7 @@ export function createStarterCreature(world: World): void {
     ["generator", 3],
     ["contractor", 6],
     ["grabber", 2],
+    ["flagella", 2],
   ];
   for (const [type, count] of riders) {
     for (let i = 0; i < count; i++) {

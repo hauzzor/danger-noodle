@@ -55,6 +55,7 @@ export class Renderer {
     if (blob.type === "generator") return 2;
     if (blob.type === "contractor") return 205;
     if (blob.type === "grabber") return 40;
+    if (blob.type === "flagella") return 300;
     return 142 + (((blob.id * 47) % 13) - 6);
   }
 
@@ -152,9 +153,44 @@ export class Renderer {
   private drawBlobs(world: World): void {
     for (const blob of world.activeBlobs()) {
       if (blob.held) continue;
+      if (blob.type === "flagella") this.drawFlagellum(blob, world.time);
       this.drawBlock(blob);
       if (blob.contracting || blob.grabbing) this.drawActiveGlow(blob);
     }
+  }
+
+  // A wavy flagellum tail reaching outward along the block's angle.
+  private drawFlagellum(blob: Blob, t: number, alpha = 1): void {
+    const { ctx, camera } = this;
+    const hue = this.hue(blob);
+    const base = blob.radius;
+    const len = 2.6;
+    const segs = 16;
+    const amp = blob.firing ? 0.5 : 0.22;
+    const dirx = Math.cos(blob.angle);
+    const diry = Math.sin(blob.angle);
+    const nx = -diry;
+    const ny = dirx;
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.strokeStyle = `hsl(${hue}, 60%, 62%)`;
+    ctx.lineCap = "round";
+    let prev: { x: number; y: number } | null = null;
+    for (let i = 0; i <= segs; i++) {
+      const f = i / segs;
+      const along = base + f * len;
+      const wave = Math.sin(f * Math.PI * 3 - t * 8) * amp * f;
+      const p = this.P(blob.x + dirx * along + nx * wave, blob.y + diry * along + ny * wave);
+      if (prev) {
+        ctx.lineWidth = Math.max(0.6, (1 - f) * blob.radius * camera.zoom * 0.5 + 0.6);
+        ctx.beginPath();
+        ctx.moveTo(prev.x, prev.y);
+        ctx.lineTo(p.x, p.y);
+        ctx.stroke();
+      }
+      prev = p;
+    }
+    ctx.restore();
   }
 
   private drawActiveGlow(blob: Blob): void {
@@ -173,6 +209,7 @@ export class Renderer {
     if (type === "generator") return 2;
     if (type === "contractor") return 205;
     if (type === "grabber") return 40;
+    if (type === "flagella") return 300;
     return 146;
   }
 
@@ -284,6 +321,10 @@ export class Renderer {
       grabY: 0,
       grabForce: 0.5,
       grabTime: 1,
+      angle: 0,
+      impulse: 6,
+      firing: false,
+      fireTimer: 0,
     };
 
     for (const id of drag.plan) {
@@ -298,6 +339,7 @@ export class Renderer {
       );
     }
     this.drawBlock(ghost, 0.5);
+    if (drag.type === "flagella") this.drawFlagellum(ghost, world.time, 0.5);
 
     const p = this.P(drag.pos.x, drag.pos.y);
     const r = BLOB_RADIUS * camera.zoom;
