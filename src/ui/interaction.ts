@@ -45,6 +45,7 @@ export class Interaction {
   private panning = false;
   private drag: DragState | null = null;
   private spawned: Traveller | null = null;
+  private spawnType: BlockType | null = null;
   private lastPointer: Vec2 | null = null;
   private lastPinch = 0;
 
@@ -67,19 +68,37 @@ export class Interaction {
     return this.o.getWorld().planBonds(pos.x, pos.y).map((b) => b.id);
   }
 
-  // Spawn a fresh loose block of `type` in drag mode: it follows the pointer as
-  // a ghost until the next click places it.
+  // The block type currently being spawned from the toolbar, or null.
+  getSpawnType(): BlockType | null {
+    return this.spawnType;
+  }
+
+  // Toolbar spawn: first click puts a block of `type` in the hand; clicking the
+  // same button again cancels. Placing a block refills the hand with the same
+  // type (see onDown), so you can place repeatedly.
   beginSpawn(type: BlockType): void {
+    if (this.spawnType === type) {
+      this.spawnType = null;
+      this.spawned = null;
+      this.dragRender = null;
+      this.o.onChange();
+      return;
+    }
+    this.spawnType = type;
+    this.refillHand();
+    this.o.onChange();
+  }
+
+  private refillHand(): void {
+    if (!this.spawnType) return;
     const here = this.lastPointer
       ? this.o.camera.s2w(this.lastPointer.x, this.lastPointer.y)
       : { x: this.o.camera.x, y: this.o.camera.y };
     const world = this.o.getWorld();
-    if (this.spawned) world.removeTraveller(this.spawned);
-    const t = world.addFreeTraveller(type, here.x, here.y);
+    const t = world.addFreeTraveller(this.spawnType, here.x, here.y);
     world.removeTraveller(t);
     this.spawned = t;
-    this.dragRender = { kind: "traveller", pos: here, type, id: t.id, plan: this.planFor(here) };
-    this.o.onChange();
+    this.dragRender = { kind: "traveller", pos: here, type: this.spawnType, id: t.id, plan: this.planFor(here) };
   }
 
   // Recompute the shown plan from the current world so a drop builds exactly
@@ -144,13 +163,16 @@ export class Interaction {
 
   private onDown = (e: PointerEvent): void => {
     if (this.spawned) {
-      // Place the block being spawned at the click point.
+      // Place the block being spawned at the click point, then refill the hand
+      // with another of the same type.
       const p = this.local(e);
+      this.lastPointer = p;
       const pos = this.o.camera.s2w(p.x, p.y);
       const plan = this.dragRender?.plan ?? [];
       this.o.getWorld().buildTravellerAt(this.spawned, pos.x, pos.y, plan);
       this.spawned = null;
       this.dragRender = null;
+      this.refillHand();
       this.o.onChange();
       return;
     }

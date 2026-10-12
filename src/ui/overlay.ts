@@ -21,6 +21,7 @@ export interface Overlay {
   setReplace: (on: boolean) => void;
   setMenu: (on: boolean) => void;
   setPressure: (on: boolean) => void;
+  setActiveSpawn: (type: BlockType | null) => void;
   setStatus: (text: string) => void;
   toast: (text: string) => void;
 }
@@ -130,13 +131,18 @@ export function createOverlay(root: HTMLElement, handlers: OverlayHandlers): Ove
     ["contractor", "Contractor"],
     ["grabber", "Grabber"],
   ];
+  const spawnButtons = new Map<BlockType, HTMLButtonElement>();
   for (const [type, label] of spawnDefs) {
     const btn = document.createElement("button");
     btn.className = `btn spawn ${type}`;
     btn.textContent = label;
     btn.addEventListener("click", () => handlers.onSpawn(type));
     leftBar.append(btn);
+    spawnButtons.set(type, btn);
   }
+  const setActiveSpawn = (type: BlockType | null): void => {
+    for (const [t, btn] of spawnButtons) btn.classList.toggle("active", t === type);
+  };
 
   const actions = document.createElement("div");
   actions.className = "actions";
@@ -182,6 +188,7 @@ export function createOverlay(root: HTMLElement, handlers: OverlayHandlers): Ove
     setReplace,
     setMenu,
     setPressure,
+    setActiveSpawn,
     setStatus: (text: string) => {
       status.textContent = text;
     },

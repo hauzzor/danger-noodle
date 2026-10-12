@@ -61,7 +61,10 @@ export class App {
         this.overlay.setPressure(this.pressureOn);
         this.renderer.showPressure = this.pressureOn;
       },
-      onSpawn: (type) => this.interaction.beginSpawn(type),
+      onSpawn: (type) => {
+        this.interaction.beginSpawn(type);
+        this.overlay.setActiveSpawn(this.interaction.getSpawnType());
+      },
       onRegenerate: () => this.regenerate(),
       onClear: () => this.clearCreature(),
       onSave: () => this.save(),
