@@ -52,7 +52,9 @@ export function findFaces(blobs: Pt[], bonds: Bond[]): { verts: number[]; area: 
         const list = nbrs[cv];
         const i = pos.get(`${cv}_${u}`);
         if (i == null || list.length === 0) break;
-        const nxt = list[(i + 1) % list.length];
+        // Successor is the previous (clockwise) neighbour of `u` around `cv`;
+        // this traces the smallest faces (the cells), not the outer hull.
+        const nxt = list[(i - 1 + list.length) % list.length];
         u = cv;
         cv = nxt;
       }
