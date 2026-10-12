@@ -111,7 +111,7 @@ export function deserialize(data: Snapshot): { world: World; progress: Progress 
     blob.grabForce = bd.grabForce ?? 0.5;
     blob.grabTime = bd.grabTime ?? 1;
     blob.angle = bd.angle ?? 0;
-    blob.impulse = bd.impulse ?? 6;
+    blob.impulse = bd.impulse ?? 0.6;
     idMap.set(bd.id, blob.id);
   }
 

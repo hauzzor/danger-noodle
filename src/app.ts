@@ -268,8 +268,8 @@ export class App {
         label: "Impulse",
         value: blob.impulse,
         min: 0,
-        max: 20,
-        step: 0.5,
+        max: 2,
+        step: 0.05,
         onChange: (v) => {
           this.setValue(blob, "impulse", v);
         },

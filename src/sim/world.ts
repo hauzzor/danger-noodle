@@ -70,7 +70,7 @@ export class World {
       grabForce: 0.5,
       grabTime: 1,
       angle: 0,
-      impulse: 6,
+      impulse: 0.6,
       firing: false,
       fireTimer: 0,
     };
