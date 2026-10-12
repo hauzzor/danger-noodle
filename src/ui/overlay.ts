@@ -2,6 +2,8 @@ import type { BlockType } from "../sim/types";
 
 export interface OverlayHandlers {
   onSpeed: (speed: number) => void;
+  onPressureK: (value: number) => void;
+  onPressureForce: (value: number) => void;
   onToggleReplace: () => void;
   onToggleMenu: () => void;
   onTogglePressure: () => void;
@@ -51,6 +53,41 @@ export function createOverlay(root: HTMLElement, handlers: OverlayHandlers): Ove
   };
   slider.addEventListener("input", applySpeed);
   speedWrap.append(speedLabel, slider, speedValue);
+
+  const rangeControl = (
+    label: string,
+    min: number,
+    max: number,
+    step: number,
+    value: number,
+    onInput: (v: number) => void,
+  ): HTMLElement => {
+    const wrap = document.createElement("label");
+    wrap.className = "control";
+    const lab = document.createElement("span");
+    lab.className = "control-label";
+    lab.textContent = label;
+    const valueEl = document.createElement("span");
+    valueEl.className = "control-value";
+    const input = document.createElement("input");
+    input.type = "range";
+    input.min = String(min);
+    input.max = String(max);
+    input.step = String(step);
+    input.value = String(value);
+    const apply = (): void => {
+      const v = Number(input.value);
+      valueEl.textContent = String(v);
+      onInput(v);
+    };
+    input.addEventListener("input", apply);
+    wrap.append(lab, input, valueEl);
+    apply();
+    return wrap;
+  };
+
+  const pressureKControl = rangeControl("Pressure K", 0, 4, 0.1, 1.2, (v) => handlers.onPressureK(v));
+  const pressureForceControl = rangeControl("Pressure force", 0, 40, 1, 10, (v) => handlers.onPressureForce(v));
 
   const replaceBtn = document.createElement("button");
   replaceBtn.className = "btn toggle";
@@ -122,7 +159,17 @@ export function createOverlay(root: HTMLElement, handlers: OverlayHandlers): Ove
   const toastEl = document.createElement("div");
   toastEl.className = "toast hidden";
 
-  bar.append(title, speedWrap, replaceBtn, menuBtn, pressureBtn, status, actions);
+  bar.append(
+    title,
+    speedWrap,
+    pressureKControl,
+    pressureForceControl,
+    replaceBtn,
+    menuBtn,
+    pressureBtn,
+    status,
+    actions,
+  );
   root.append(bar, leftBar, toastEl);
   applySpeed();
 

@@ -41,6 +41,12 @@ export class App {
       onSpeed: (s) => {
         this.loop.speed = s;
       },
+      onPressureK: (v) => {
+        this.world.pressureK = v;
+      },
+      onPressureForce: (v) => {
+        this.world.pressureForce = v;
+      },
       onToggleReplace: () => {
         this.replaceOn = !this.replaceOn;
         this.overlay.setReplace(this.replaceOn);

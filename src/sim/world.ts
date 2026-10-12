@@ -10,10 +10,6 @@ export const MAX_HOPS = 42;
 export const CHUNK = 30;
 // Gentle ambient flow strength (units/s^2) for the floating, gravity-free world.
 const DRIFT = 0.6;
-// Air pressure: `pressure = K * (refArea / area - 1)`; the resulting boundary
-// force is scaled by PRESSURE_FORCE.
-const PRESSURE_K = 1.2;
-const PRESSURE_FORCE = 10;
 
 export class World {
   blobs: Blob[] = [];
@@ -28,6 +24,10 @@ export class World {
   damping = 0.995;
   iterations = 4;
   maxBondsPerBlob = 6;
+  // Air pressure: `pressure = pressureK * (refArea / area - 1)`; the boundary
+  // force it produces is scaled by pressureForce.
+  pressureK = 1.2;
+  pressureForce = 10;
   // Beams are springs, not rigid rods: this is the fraction of the stretch
   // corrected per solver pass. Below 1 the length can drift from `rest`
   // (elongate/shorten) and springs back. Lower = softer/springier.
@@ -566,7 +566,7 @@ export class World {
       if (!this.compartmentRef.has(key)) this.compartmentRef.set(key, f.area);
       const refArea = this.compartmentRef.get(key)!;
       const area = Math.max(f.area, 1e-3);
-      const pressure = Math.max(-3, Math.min(3, PRESSURE_K * (refArea / area - 1)));
+      const pressure = Math.max(-3, Math.min(3, this.pressureK * (refArea / area - 1)));
       comps.push({ verts: f.verts, area, pressure });
 
       if (Math.abs(pressure) < 1e-4) continue;
@@ -582,7 +582,7 @@ export class World {
         // Outward normal for a CCW face.
         const nx = ey / L;
         const ny = -ex / L;
-        const fhalf = pressure * L * PRESSURE_FORCE * 0.5;
+        const fhalf = pressure * L * this.pressureForce * 0.5;
         fx[ia] += nx * fhalf;
         fy[ia] += ny * fhalf;
         fx[ib] += nx * fhalf;
