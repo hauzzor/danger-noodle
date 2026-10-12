@@ -4,6 +4,7 @@ export interface OverlayHandlers {
   onSpeed: (speed: number) => void;
   onToggleReplace: () => void;
   onToggleMenu: () => void;
+  onTogglePressure: () => void;
   onSpawn: (type: BlockType) => void;
   onRegenerate: () => void;
   onClear: () => void;
@@ -17,6 +18,7 @@ export interface Overlay {
   setSpeed: (speed: number) => void;
   setReplace: (on: boolean) => void;
   setMenu: (on: boolean) => void;
+  setPressure: (on: boolean) => void;
   setStatus: (text: string) => void;
   toast: (text: string) => void;
 }
@@ -70,6 +72,16 @@ export function createOverlay(root: HTMLElement, handlers: OverlayHandlers): Ove
   menuBtn.addEventListener("click", handlers.onToggleMenu);
   setMenu(true);
 
+  const pressureBtn = document.createElement("button");
+  pressureBtn.className = "btn toggle";
+  const setPressure = (on: boolean): void => {
+    pressureBtn.textContent = `Pressure: ${on ? "on" : "off"}`;
+    pressureBtn.classList.toggle("active", on);
+    pressureBtn.setAttribute("aria-pressed", String(on));
+  };
+  pressureBtn.addEventListener("click", handlers.onTogglePressure);
+  setPressure(true);
+
   const status = document.createElement("div");
   status.className = "status";
 
@@ -110,7 +122,7 @@ export function createOverlay(root: HTMLElement, handlers: OverlayHandlers): Ove
   const toastEl = document.createElement("div");
   toastEl.className = "toast hidden";
 
-  bar.append(title, speedWrap, replaceBtn, menuBtn, status, actions);
+  bar.append(title, speedWrap, replaceBtn, menuBtn, pressureBtn, status, actions);
   root.append(bar, leftBar, toastEl);
   applySpeed();
 
@@ -122,6 +134,7 @@ export function createOverlay(root: HTMLElement, handlers: OverlayHandlers): Ove
     },
     setReplace,
     setMenu,
+    setPressure,
     setStatus: (text: string) => {
       status.textContent = text;
     },

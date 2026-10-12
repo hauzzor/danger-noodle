@@ -1,6 +1,7 @@
 import { updateTravellers } from "./travel";
 import { mulberry32 } from "../engine/rng";
 import { closestOnSegment, segmentsCross, segSegClosest } from "./geometry";
+import { findFaces, type Compartment } from "./faces";
 import { BEAM_RADIUS, BLOB_RADIUS, MAX_BOND_DIST, MIN_BOND_DIST, TRAVELLER_RADIUS } from "./units";
 import type { Blob, BlockType, Bond, Neighbor, Pulse, Traveller, Vec2 } from "./types";
 
@@ -9,12 +10,17 @@ export const MAX_HOPS = 42;
 export const CHUNK = 30;
 // Gentle ambient flow strength (units/s^2) for the floating, gravity-free world.
 const DRIFT = 0.6;
+// Air pressure: `pressure = K * (refArea / area - 1)`; the resulting boundary
+// force is scaled by PRESSURE_FORCE.
+const PRESSURE_K = 1.2;
+const PRESSURE_FORCE = 10;
 
 export class World {
   blobs: Blob[] = [];
   bonds: Bond[] = [];
   travellers: Traveller[] = [];
   pulses: Pulse[] = [];
+  compartments: Compartment[] = [];
   time = 0;
   seed = 1;
 
@@ -30,6 +36,9 @@ export class World {
   private adj: Neighbor[][] = [];
   private nextId = 1;
   private nextPulse = 1;
+  private compartmentRef = new Map<string, number>();
+  private pressureFx: number[] = [];
+  private pressureFy: number[] = [];
 
   newId(): number {
     return this.nextId++;
@@ -422,6 +431,7 @@ export class World {
 
   step(dt: number): void {
     this.time += dt;
+    this.updateCompartments();
     this.integrate(dt);
     for (let i = 0; i < this.iterations; i++) {
       this.solveConstraints();
@@ -517,14 +527,17 @@ export class World {
   private integrate(dt: number): void {
     const dt2 = dt * dt;
     const t = this.time;
-    for (const b of this.blobs) {
+    for (let i = 0; i < this.blobs.length; i++) {
+      const b = this.blobs[i];
       if (b.removed || b.held) continue;
       const vx = (b.x - b.px) * this.damping;
       const vy = (b.y - b.py) * this.damping;
       b.px = b.x;
       b.py = b.y;
-      b.x += vx + Math.sin(b.y * 0.12 + t * 0.4) * DRIFT * dt2;
-      b.y += vy + Math.cos(b.x * 0.1 + t * 0.33) * DRIFT * dt2;
+      const pfx = this.pressureFx[i] ?? 0;
+      const pfy = this.pressureFy[i] ?? 0;
+      b.x += vx + (Math.sin(b.y * 0.12 + t * 0.4) * DRIFT + pfx) * dt2;
+      b.y += vy + (Math.cos(b.x * 0.1 + t * 0.33) * DRIFT + pfy) * dt2;
     }
     for (const tr of this.travellers) {
       if (tr.attached) continue;
@@ -534,6 +547,54 @@ export class World {
       tr.py = tr.y;
       tr.x += vx + Math.sin(tr.y * 0.12 + t * 0.4) * DRIFT * dt2;
       tr.y += vy + Math.cos(tr.x * 0.1 + t * 0.33) * DRIFT * dt2;
+    }
+  }
+
+  // Air pressure in enclosed compartments. Environment (outer face) is 0; a new
+  // compartment starts at 0 and its pressure rises as it shrinks (and falls as
+  // it grows). Positive pressure pushes the boundary outward, negative inward.
+  private updateCompartments(): void {
+    const faces = findFaces(this.blobs, this.bonds);
+    const fx = new Array<number>(this.blobs.length).fill(0);
+    const fy = new Array<number>(this.blobs.length).fill(0);
+    const comps: Compartment[] = [];
+    const seen = new Set<string>();
+
+    for (const f of faces) {
+      const key = [...f.verts].sort((a, b) => a - b).join(",");
+      seen.add(key);
+      if (!this.compartmentRef.has(key)) this.compartmentRef.set(key, f.area);
+      const refArea = this.compartmentRef.get(key)!;
+      const area = Math.max(f.area, 1e-3);
+      const pressure = Math.max(-3, Math.min(3, PRESSURE_K * (refArea / area - 1)));
+      comps.push({ verts: f.verts, area, pressure });
+
+      if (Math.abs(pressure) < 1e-4) continue;
+      for (let k = 0; k < f.verts.length; k++) {
+        const ia = f.verts[k];
+        const ib = f.verts[(k + 1) % f.verts.length];
+        const a = this.blobs[ia];
+        const b = this.blobs[ib];
+        const ex = b.x - a.x;
+        const ey = b.y - a.y;
+        const L = Math.hypot(ex, ey);
+        if (L < 1e-6) continue;
+        // Outward normal for a CCW face.
+        const nx = ey / L;
+        const ny = -ex / L;
+        const fhalf = pressure * L * PRESSURE_FORCE * 0.5;
+        fx[ia] += nx * fhalf;
+        fy[ia] += ny * fhalf;
+        fx[ib] += nx * fhalf;
+        fy[ib] += ny * fhalf;
+      }
+    }
+
+    this.compartments = comps;
+    this.pressureFx = fx;
+    this.pressureFy = fy;
+    for (const key of [...this.compartmentRef.keys()]) {
+      if (!seen.has(key)) this.compartmentRef.delete(key);
     }
   }
 

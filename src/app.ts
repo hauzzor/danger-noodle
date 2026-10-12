@@ -24,6 +24,7 @@ export class App {
   private replaceOn = false;
   private menuOn = true;
   private applyAll = false;
+  private pressureOn = true;
 
   constructor(canvas: HTMLCanvasElement, uiRoot: HTMLElement) {
     this.progress = createProgress(Math.floor(Math.random() * 1e9));
@@ -48,6 +49,11 @@ export class App {
         this.menuOn = !this.menuOn;
         this.overlay.setMenu(this.menuOn);
         if (!this.menuOn) this.radial.close();
+      },
+      onTogglePressure: () => {
+        this.pressureOn = !this.pressureOn;
+        this.overlay.setPressure(this.pressureOn);
+        this.renderer.showPressure = this.pressureOn;
       },
       onSpawn: (type) => this.interaction.beginSpawn(type),
       onRegenerate: () => this.regenerate(),
