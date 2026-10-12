@@ -75,26 +75,52 @@ export class Renderer {
     ctx.fillStyle = g;
     ctx.fillRect(0, 0, camera.vw, camera.vh);
 
-    // Procedural motes in world space, so the field parallaxes as you pan.
-    const start = camera.s2w(0, 0);
-    const end = camera.s2w(camera.vw, camera.vh);
-    const step = 8;
-    const x0 = Math.floor(start.x / step);
-    const x1 = Math.ceil(end.x / step);
-    const y0 = Math.floor(start.y / step);
-    const y1 = Math.ceil(end.y / step);
+    // Two layers of procedural motes in world space so the field parallaxes and
+    // movement is easier to read.
+    this.drawMotes(camera, 12, 0.06, 1.5, "120,220,160");
+    this.drawMotes(camera, 5, 0.05, 0.9, "165,240,195");
+
+    const v = ctx.createRadialGradient(
+      camera.vw / 2,
+      camera.vh / 2,
+      Math.min(camera.vw, camera.vh) * 0.35,
+      camera.vw / 2,
+      camera.vh / 2,
+      Math.max(camera.vw, camera.vh) * 0.75,
+    );
+    v.addColorStop(0, "rgba(0,0,0,0)");
+    v.addColorStop(1, "rgba(0,0,0,0.35)");
+    ctx.fillStyle = v;
+    ctx.fillRect(0, 0, camera.vw, camera.vh);
+  }
+
+  private drawMotes(camera: Camera, step: number, baseAlpha: number, scale: number, rgb: string): void {
+    const { ctx } = this;
+    const c0 = camera.s2w(0, 0);
+    const c1 = camera.s2w(camera.vw, 0);
+    const c2 = camera.s2w(0, camera.vh);
+    const c3 = camera.s2w(camera.vw, camera.vh);
+    const minX = Math.min(c0.x, c1.x, c2.x, c3.x);
+    const maxX = Math.max(c0.x, c1.x, c2.x, c3.x);
+    const minY = Math.min(c0.y, c1.y, c2.y, c3.y);
+    const maxY = Math.max(c0.y, c1.y, c2.y, c3.y);
+    const x0 = Math.floor(minX / step);
+    const x1 = Math.ceil(maxX / step);
+    const y0 = Math.floor(minY / step);
+    const y1 = Math.ceil(maxY / step);
+    if ((x1 - x0 + 1) * (y1 - y0 + 1) > 20000) return;
     for (let gy = y0; gy <= y1; gy++) {
       for (let gx = x0; gx <= x1; gx++) {
-        const h = hash2(gx, gy);
+        const h = hash2(gx, gy * 131 + step);
         const a = ((h >>> 8) & 255) / 255;
-        if (a < 0.5) continue;
+        if (a < 0.35) continue;
         const px = (gx + (h & 255) / 255) * step;
         const py = (gy + ((h >>> 16) & 255) / 255) * step;
         const p = this.P(px, py);
-        const r = Math.max(0.6, camera.zoom * 0.03) * (0.5 + a);
+        const r = Math.max(0.5, camera.zoom * 0.02 * scale) * (0.5 + a);
         ctx.beginPath();
         ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
-        ctx.fillStyle = `rgba(120, 220, 160, ${0.03 + a * 0.05})`;
+        ctx.fillStyle = `rgba(${rgb}, ${baseAlpha * (0.4 + a)})`;
         ctx.fill();
       }
     }
