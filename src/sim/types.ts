@@ -1,6 +1,6 @@
 // All block types, in toolbar order. This is the single source of truth:
 // adding a type here also gives it a "Create" button in the left toolbar.
-export const BLOCK_TYPES = ["basic", "generator", "contractor", "grabber", "flagella"] as const;
+export const BLOCK_TYPES = ["basic", "generator", "contractor", "grabber", "flagella", "camera", "eye"] as const;
 
 export type BlockType = (typeof BLOCK_TYPES)[number];
 
@@ -40,6 +40,10 @@ export interface Blob {
   impulse: number;
   firing: boolean;
   fireTimer: number;
+  fov: number;
+  range: number;
+  period: number;
+  viewTimer: number;
 }
 
 export interface Bond {

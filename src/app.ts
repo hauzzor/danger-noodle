@@ -24,6 +24,7 @@ export class App {
   private replaceOn = false;
   private menuOn = true;
   private applyAll = false;
+  private cameraLock: number | null = null;
 
   constructor(canvas: HTMLCanvasElement, uiRoot: HTMLElement) {
     this.progress = createProgress(Math.floor(Math.random() * 1e9));
@@ -86,9 +87,27 @@ export class App {
   }
 
   private render(): void {
-    const start = this.camera.s2w(0, 0);
-    const end = this.camera.s2w(this.camera.vw, this.camera.vh);
-    this.world.ensureChunks(start.x - 40, start.y - 40, end.x + 40, end.y + 40);
+    if (this.cameraLock != null) {
+      const b = this.world.getBlob(this.cameraLock);
+      if (b) {
+        this.camera.x = b.x;
+        this.camera.y = b.y;
+        this.camera.angle = b.angle;
+      } else {
+        this.cameraLock = null;
+      }
+    }
+    const corners = [
+      this.camera.s2w(0, 0),
+      this.camera.s2w(this.camera.vw, 0),
+      this.camera.s2w(0, this.camera.vh),
+      this.camera.s2w(this.camera.vw, this.camera.vh),
+    ];
+    const minX = Math.min(...corners.map((c) => c.x)) - 40;
+    const minY = Math.min(...corners.map((c) => c.y)) - 40;
+    const maxX = Math.max(...corners.map((c) => c.x)) + 40;
+    const maxY = Math.max(...corners.map((c) => c.y)) + 40;
+    this.world.ensureChunks(minX, minY, maxX, maxY);
     this.interaction.refreshDragPlan();
     this.renderer.draw(this.world, this.interaction.dragRender);
     this.statusTick += 1;
@@ -282,6 +301,78 @@ export class App {
         multi: true,
         onChange: (v) => {
           this.setValue(blob, "acceptColors", v);
+        },
+      });
+    } else if (blob.type === "camera") {
+      items.push({
+        kind: "slider",
+        label: "Angle",
+        value: Math.round((blob.angle * 180) / Math.PI),
+        min: 0,
+        max: 360,
+        step: 5,
+        onChange: (v) => {
+          this.setValue(blob, "angle", (v * Math.PI) / 180);
+        },
+      });
+      const cams = this.world.activeBlobs().filter((b) => b.type === "camera");
+      const options = [
+        { value: "0", label: "None" },
+        ...cams.map((c) => ({ value: String(c.id), label: `Camera #${c.id}` })),
+      ];
+      items.push({
+        kind: "select",
+        label: "Lock camera",
+        options,
+        value: this.cameraLock != null ? String(this.cameraLock) : "0",
+        onChange: (v) => {
+          const id = Number(v);
+          this.cameraLock = id > 0 ? id : null;
+        },
+      });
+    } else if (blob.type === "eye") {
+      items.push({
+        kind: "slider",
+        label: "FOV (deg)",
+        value: blob.fov,
+        min: 5,
+        max: 90,
+        step: 1,
+        onChange: (v) => {
+          this.setValue(blob, "fov", v);
+        },
+      });
+      items.push({
+        kind: "slider",
+        label: "Range",
+        value: blob.range,
+        min: 2,
+        max: 40,
+        step: 1,
+        onChange: (v) => {
+          this.setValue(blob, "range", v);
+        },
+      });
+      items.push({
+        kind: "slider",
+        label: "Angle offset",
+        value: Math.round((blob.angle * 180) / Math.PI),
+        min: -180,
+        max: 180,
+        step: 5,
+        onChange: (v) => {
+          this.setValue(blob, "angle", (v * Math.PI) / 180);
+        },
+      });
+      items.push({
+        kind: "slider",
+        label: "Period (s)",
+        value: blob.period,
+        min: 0.2,
+        max: 5,
+        step: 0.1,
+        onChange: (v) => {
+          this.setValue(blob, "period", v);
         },
       });
     }

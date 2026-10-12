@@ -9,6 +9,13 @@ export type RadialItem =
       value: number[];
       multi?: boolean;
       onChange: (v: number[]) => void;
+    }
+  | {
+      kind: "select";
+      label: string;
+      options: { value: string; label: string }[];
+      value: string;
+      onChange: (v: string) => void;
     };
 
 export interface Radial {
@@ -104,6 +111,18 @@ export function createRadial(root: HTMLElement): Radial {
             wrap.append(sw);
           });
           el.append(row(item.label, wrap));
+        } else if (item.kind === "select") {
+          const sel = document.createElement("select");
+          sel.className = "radial-select";
+          for (const o of item.options) {
+            const opt = document.createElement("option");
+            opt.value = o.value;
+            opt.textContent = o.label;
+            if (o.value === item.value) opt.selected = true;
+            sel.append(opt);
+          }
+          sel.addEventListener("change", () => item.onChange(sel.value));
+          el.append(row(item.label, sel));
         } else {
           const btn = document.createElement("button");
           btn.className = "radial-item";

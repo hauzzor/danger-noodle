@@ -19,3 +19,14 @@ export const SIGNAL_PALETTE: SignalColor[] = [
 export function signalCss(index: number): string {
   return SIGNAL_PALETTE[index]?.css ?? SIGNAL_PALETTE[0].css;
 }
+
+// The signal colour an eye emits when it sees a block of a given type.
+export const TYPE_SIGNAL_COLOR: Record<string, number> = {
+  basic: 3,
+  generator: 0,
+  contractor: 5,
+  grabber: 1,
+  flagella: 6,
+  camera: 2,
+  eye: 4,
+};

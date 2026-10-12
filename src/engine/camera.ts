@@ -9,6 +9,7 @@ export class Camera {
   zoom = 20;
   minZoom = 4;
   maxZoom = 100;
+  angle = 0;
 
   vw = 0;
   vh = 0;
@@ -19,22 +20,32 @@ export class Camera {
   }
 
   w2s(wx: number, wy: number): Vec2 {
+    const dx = wx - this.x;
+    const dy = wy - this.y;
+    const c = Math.cos(-this.angle);
+    const s = Math.sin(-this.angle);
     return {
-      x: (wx - this.x) * this.zoom + this.vw / 2,
-      y: (wy - this.y) * this.zoom + this.vh / 2,
+      x: (dx * c - dy * s) * this.zoom + this.vw / 2,
+      y: (dx * s + dy * c) * this.zoom + this.vh / 2,
     };
   }
 
   s2w(sx: number, sy: number): Vec2 {
+    const dx = (sx - this.vw / 2) / this.zoom;
+    const dy = (sy - this.vh / 2) / this.zoom;
+    const c = Math.cos(this.angle);
+    const s = Math.sin(this.angle);
     return {
-      x: (sx - this.vw / 2) / this.zoom + this.x,
-      y: (sy - this.vh / 2) / this.zoom + this.y,
+      x: this.x + dx * c - dy * s,
+      y: this.y + dx * s + dy * c,
     };
   }
 
   panScreen(dx: number, dy: number): void {
-    this.x -= dx / this.zoom;
-    this.y -= dy / this.zoom;
+    const c = Math.cos(this.angle);
+    const s = Math.sin(this.angle);
+    this.x -= (dx * c - dy * s) / this.zoom;
+    this.y -= (dx * s + dy * c) / this.zoom;
   }
 
   zoomAt(sx: number, sy: number, factor: number): void {

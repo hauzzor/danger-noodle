@@ -56,10 +56,13 @@ export class Renderer {
     if (blob.type === "contractor") return 205;
     if (blob.type === "grabber") return 40;
     if (blob.type === "flagella") return 300;
+    if (blob.type === "eye") return 200;
+    if (blob.type === "camera") return 220;
     return 142 + (((blob.id * 47) % 13) - 6);
   }
 
   private blockColor(blob: Blob): string {
+    if (blob.type === "camera") return "#141419";
     return `hsl(${this.hue(blob)}, 45%, 43%)`;
   }
 
@@ -138,6 +141,22 @@ export class Renderer {
     const { ctx, camera } = this;
     const p = this.P(blob.x, blob.y);
     const r = blob.radius * camera.zoom;
+    if (blob.type === "camera") {
+      ctx.globalAlpha = alpha;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
+      ctx.fillStyle = "#0c0c10";
+      ctx.fill();
+      ctx.lineWidth = Math.max(1, r * 0.16);
+      ctx.strokeStyle = "rgba(170, 180, 200, 0.5)";
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.arc(p.x - r * 0.22, p.y - r * 0.28, r * 0.26, 0, Math.PI * 2);
+      ctx.fillStyle = "rgba(120, 140, 170, 0.65)";
+      ctx.fill();
+      ctx.globalAlpha = 1;
+      return;
+    }
     const h = this.hue(blob);
     const g = ctx.createRadialGradient(p.x - r * 0.3, p.y - r * 0.35, r * 0.1, p.x, p.y, r);
     g.addColorStop(0, `hsl(${h + 6}, 58%, 62%)`);
@@ -154,9 +173,32 @@ export class Renderer {
     for (const blob of world.activeBlobs()) {
       if (blob.held) continue;
       if (blob.type === "flagella") this.drawFlagellum(blob, world.flagellaAngle(blob), world.time);
+      if (blob.type === "eye") this.drawEyeCone(world, blob);
       this.drawBlock(blob);
       if (blob.contracting || blob.grabbing) this.drawActiveGlow(blob);
     }
+  }
+
+  // Translucent view cone for an eye block.
+  private drawEyeCone(world: World, eye: Blob): void {
+    const { ctx } = this;
+    const a = world.flagellaAngle(eye);
+    const half = ((eye.fov * Math.PI) / 180) / 2;
+    const p0 = this.P(eye.x, eye.y);
+    ctx.beginPath();
+    ctx.moveTo(p0.x, p0.y);
+    const steps = 14;
+    for (let i = 0; i <= steps; i++) {
+      const ang = a - half + 2 * half * (i / steps);
+      const p = this.P(eye.x + Math.cos(ang) * eye.range, eye.y + Math.sin(ang) * eye.range);
+      ctx.lineTo(p.x, p.y);
+    }
+    ctx.closePath();
+    ctx.fillStyle = "hsla(200, 75%, 65%, 0.12)";
+    ctx.fill();
+    ctx.strokeStyle = "hsla(200, 75%, 72%, 0.35)";
+    ctx.lineWidth = 1;
+    ctx.stroke();
   }
 
   // A wavy flagellum tail reaching outward along `angle`.
@@ -210,6 +252,8 @@ export class Renderer {
     if (type === "contractor") return 205;
     if (type === "grabber") return 40;
     if (type === "flagella") return 300;
+    if (type === "eye") return 200;
+    if (type === "camera") return 220;
     return 146;
   }
 
@@ -325,6 +369,10 @@ export class Renderer {
       impulse: 0.6,
       firing: false,
       fireTimer: 0,
+      fov: 20,
+      range: 20,
+      period: 1,
+      viewTimer: 0,
     };
 
     for (const id of drag.plan) {

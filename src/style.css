@@ -122,6 +122,8 @@ body {
 #ui .overlay-left .spawn.contractor { border-left-color: #5b9cff; }
 #ui .overlay-left .spawn.grabber { border-left-color: #ff9f43; }
 #ui .overlay-left .spawn.flagella { border-left-color: #d24fd2; }
+#ui .overlay-left .spawn.camera { border-left-color: #101015; }
+#ui .overlay-left .spawn.eye { border-left-color: #56c8f0; }
 
 #ui .btn {
   padding: 6px 12px;
@@ -230,6 +232,16 @@ body {
 
 #ui .radial-number {
   width: 52px;
+  padding: 2px 4px;
+  background: #1b1e26;
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 12px;
+}
+
+#ui .radial-select {
+  max-width: 120px;
   padding: 2px 4px;
   background: #1b1e26;
   color: var(--text);

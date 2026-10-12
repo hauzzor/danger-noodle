@@ -1,6 +1,7 @@
 import { updateTravellers } from "./travel";
 import { mulberry32 } from "../engine/rng";
 import { closestOnSegment, segmentsCross, segSegClosest } from "./geometry";
+import { TYPE_SIGNAL_COLOR } from "./palette";
 import { BEAM_RADIUS, BLOB_RADIUS, MAX_BOND_DIST, MIN_BOND_DIST, TRAVELLER_RADIUS } from "./units";
 import type { Blob, BlockType, Bond, Neighbor, Pulse, Traveller, Vec2 } from "./types";
 
@@ -73,6 +74,10 @@ export class World {
       impulse: 0.6,
       firing: false,
       fireTimer: 0,
+      fov: 20,
+      range: 20,
+      period: 1,
+      viewTimer: 0,
     };
     this.blobs.push(blob);
     this.rebuildAdjacency();
@@ -442,6 +447,7 @@ export class World {
     this.updateContractors(dt);
     this.updateGrabbers(dt);
     this.updateFlagellas(dt);
+    this.updateEyes(dt);
   }
 
   // While grabbing, a block is anchored to where it grabbed (the ground), pulled
@@ -545,7 +551,7 @@ export class World {
   }
 
   // `maxHops` is the maximum number of hops a single signal may spread.
-  private emitSignal(source: Blob): void {
+  private emitSignal(source: Blob, color = source.signalColor): void {
     const maxHops = source.maxHops > 0 ? source.maxHops : MAX_HOPS;
     const hopDist = new Map<number, number>();
     const start = source.id - 1;
@@ -568,7 +574,7 @@ export class World {
     this.pulses.push({
       id: this.nextPulse++,
       source: source.id,
-      color: source.signalColor,
+      color,
       age: 0,
       hopTime: 1 / speed,
       maxHops,
@@ -674,6 +680,52 @@ export class World {
       b.fireTimer += dt;
       if (b.fireTimer >= FLAGELLA_FIRE_TIME) b.firing = false;
     }
+  }
+
+  // Eyes look outward and, every period, emit a signal coloured by each
+  // scattered loose block they can see within their view cone (raycast).
+  private updateEyes(dt: number): void {
+    for (const eye of this.blobs) {
+      if (eye.removed || eye.type !== "eye") continue;
+      eye.viewTimer += dt;
+      if (eye.viewTimer < Math.max(0.05, eye.period)) continue;
+      eye.viewTimer = 0;
+      const a = this.flagellaAngle(eye);
+      const dirx = Math.cos(a);
+      const diry = Math.sin(a);
+      const half = ((eye.fov * Math.PI) / 180) / 2;
+      for (const t of this.travellers) {
+        if (t.attached) continue;
+        const dx = t.x - eye.x;
+        const dy = t.y - eye.y;
+        const d = Math.hypot(dx, dy);
+        if (d > eye.range || d < 1e-6) continue;
+        const ang = Math.acos(Math.max(-1, Math.min(1, (dx * dirx + dy * diry) / d)));
+        if (ang > half) continue;
+        if (!this.segmentClear(eye, t.x, t.y)) continue;
+        this.emitSignal(eye, TYPE_SIGNAL_COLOR[t.type] ?? 3);
+      }
+    }
+  }
+
+  // True if the segment from `eye` to (x2, y2) is unblocked by any other block
+  // (circle) or beam (capsule).
+  private segmentClear(eye: Blob, x2: number, y2: number): boolean {
+    for (const k of this.blobs) {
+      if (k.removed || k.id === eye.id) continue;
+      const cp = closestOnSegment(k.x, k.y, eye.x, eye.y, x2, y2);
+      if (Math.hypot(k.x - cp.x, k.y - cp.y) < k.radius) return false;
+    }
+    for (const bond of this.bonds) {
+      if (!bond.active) continue;
+      if (bond.a === eye.id - 1 || bond.b === eye.id - 1) continue;
+      const a = this.blobs[bond.a];
+      const b = this.blobs[bond.b];
+      if (!a || !b || a.removed || b.removed) continue;
+      const r = segSegClosest(eye.x, eye.y, x2, y2, a.x, a.y, b.x, b.y);
+      if (r.d < BEAM_RADIUS) return false;
+    }
+    return true;
   }
 
   private updateContractors(dt: number): void {
@@ -860,7 +912,19 @@ export class World {
       const y = (cy + rand()) * CHUNK;
       const r = rand();
       const type: BlockType =
-        r < 0.12 ? "generator" : r < 0.24 ? "contractor" : r < 0.36 ? "grabber" : r < 0.48 ? "flagella" : "basic";
+        r < 0.1
+          ? "generator"
+          : r < 0.2
+            ? "contractor"
+            : r < 0.3
+              ? "grabber"
+              : r < 0.4
+                ? "flagella"
+                : r < 0.5
+                  ? "camera"
+                  : r < 0.6
+                    ? "eye"
+                    : "basic";
       this.addFreeTraveller(type, x, y);
     }
   }
