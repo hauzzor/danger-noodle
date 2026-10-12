@@ -8,7 +8,7 @@ export const HOP_TIME = 0.12;
 export const MAX_HOPS = 42;
 export const CHUNK = 30;
 // Gentle ambient flow strength (units/s^2) for the floating, gravity-free world.
-const DRIFT = 0.6;
+const DRIFT = 0.2;
 // How long a flagella stays "active" (ignoring further signals) after firing.
 const FLAGELLA_FIRE_TIME = 0.5;
 
