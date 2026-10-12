@@ -637,21 +637,31 @@ export class World {
     }
   }
 
-  // The direction a flagella's tail points: away from the structure (from the
-  // centroid of the other blocks through this one), plus the block's manual
-  // angle offset. The kick is applied the opposite way (inward).
+  // The direction a flagella's tail points: the middle of the biggest empty gap
+  // between its own beams (the most open side, i.e. outward from the structure),
+  // plus the block's manual angle offset. The kick is applied the opposite way.
   flagellaAngle(b: Blob): number {
-    let cx = 0;
-    let cy = 0;
-    let n = 0;
-    for (const o of this.blobs) {
-      if (o.removed || o.id === b.id) continue;
-      cx += o.x;
-      cy += o.y;
-      n++;
+    const nbrs = this.neighbors(b.id - 1);
+    const angles: number[] = [];
+    for (const n of nbrs) {
+      const o = this.blobs[n.other];
+      if (!o || o.removed) continue;
+      angles.push(Math.atan2(o.y - b.y, o.x - b.x));
     }
-    if (n === 0) return b.angle;
-    return Math.atan2(b.y - cy / n, b.x - cx / n) + b.angle;
+    if (angles.length === 0) return b.angle;
+    angles.sort((p, q) => p - q);
+    let bestGap = -1;
+    let bestMid = angles[0];
+    for (let i = 0; i < angles.length; i++) {
+      const a0 = angles[i];
+      const a1 = i + 1 < angles.length ? angles[i + 1] : angles[0] + Math.PI * 2;
+      const gap = a1 - a0;
+      if (gap > bestGap) {
+        bestGap = gap;
+        bestMid = (a0 + a1) / 2;
+      }
+    }
+    return bestMid + b.angle;
   }
 
   private updateFlagellas(dt: number): void {
