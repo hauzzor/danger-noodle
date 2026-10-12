@@ -10,6 +10,7 @@ const BG_MID = "#0a2718";
 const BG_BOTTOM = "#05160d";
 
 export class Renderer {
+  showAdvanced = false;
   private ctx: CanvasRenderingContext2D;
   private dpr = 1;
 
@@ -199,7 +200,7 @@ export class Renderer {
     for (const blob of world.activeBlobs()) {
       if (blob.held) continue;
       if (blob.type === "flagella") this.drawFlagellum(blob, world.flagellaAngle(blob), world.time);
-      if (blob.type === "eye") this.drawEyeCone(world, blob);
+      if (blob.type === "eye" && this.showAdvanced) this.drawEyeCone(world, blob);
       this.drawBlock(blob);
       if (blob.contracting || blob.grabbing) this.drawActiveGlow(blob);
     }
@@ -356,7 +357,7 @@ export class Renderer {
         ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
         ctx.fillStyle = col;
         ctx.fill();
-        if (pulse.hasDirection) {
+        if (pulse.hasDirection && this.showAdvanced) {
           const tip = this.P(wx + pulse.dirX * 0.9, wy + pulse.dirY * 0.9);
           const ang = Math.atan2(tip.y - p.y, tip.x - p.x);
           const ah = r * 1.3;

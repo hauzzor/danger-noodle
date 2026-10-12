@@ -24,6 +24,7 @@ export class App {
   private replaceOn = false;
   private menuOn = true;
   private applyAll = false;
+  private advanced = false;
   private cameraLock: number | null = null;
 
   constructor(canvas: HTMLCanvasElement, uiRoot: HTMLElement) {
@@ -49,6 +50,11 @@ export class App {
         this.menuOn = !this.menuOn;
         this.overlay.setMenu(this.menuOn);
         if (!this.menuOn) this.radial.close();
+      },
+      onToggleAdvanced: () => {
+        this.advanced = !this.advanced;
+        this.overlay.setAdvanced(this.advanced);
+        this.renderer.showAdvanced = this.advanced;
       },
       onSpawn: (type) => {
         this.interaction.beginSpawn(type);

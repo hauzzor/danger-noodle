@@ -4,6 +4,7 @@ export interface OverlayHandlers {
   onSpeed: (speed: number) => void;
   onToggleReplace: () => void;
   onToggleMenu: () => void;
+  onToggleAdvanced: () => void;
   onSpawn: (type: BlockType) => void;
   onRegenerate: () => void;
   onClear: () => void;
@@ -17,6 +18,7 @@ export interface Overlay {
   setSpeed: (speed: number) => void;
   setReplace: (on: boolean) => void;
   setMenu: (on: boolean) => void;
+  setAdvanced: (on: boolean) => void;
   setActiveSpawn: (type: BlockType | null) => void;
   setStatus: (text: string) => void;
   toast: (text: string) => void;
@@ -71,6 +73,16 @@ export function createOverlay(root: HTMLElement, handlers: OverlayHandlers): Ove
   menuBtn.addEventListener("click", handlers.onToggleMenu);
   setMenu(true);
 
+  const advancedBtn = document.createElement("button");
+  advancedBtn.className = "btn toggle";
+  const setAdvanced = (on: boolean): void => {
+    advancedBtn.textContent = `Advanced: ${on ? "on" : "off"}`;
+    advancedBtn.classList.toggle("active", on);
+    advancedBtn.setAttribute("aria-pressed", String(on));
+  };
+  advancedBtn.addEventListener("click", handlers.onToggleAdvanced);
+  setAdvanced(false);
+
   const status = document.createElement("div");
   status.className = "status";
 
@@ -119,6 +131,7 @@ export function createOverlay(root: HTMLElement, handlers: OverlayHandlers): Ove
     speedWrap,
     replaceBtn,
     menuBtn,
+    advancedBtn,
     status,
     actions,
   );
@@ -133,6 +146,7 @@ export function createOverlay(root: HTMLElement, handlers: OverlayHandlers): Ove
     },
     setReplace,
     setMenu,
+    setAdvanced,
     setActiveSpawn,
     setStatus: (text: string) => {
       status.textContent = text;
