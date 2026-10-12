@@ -92,7 +92,13 @@ export class App {
       if (b) {
         this.camera.x = b.x;
         this.camera.y = b.y;
-        this.camera.angle = this.world.cameraAngle(b);
+        // Ease the camera rotation toward the block's orientation so fast
+        // (jittery) changes in rotation are damped out.
+        const target = this.world.cameraAngle(b);
+        let diff = target - this.camera.angle;
+        while (diff > Math.PI) diff -= Math.PI * 2;
+        while (diff < -Math.PI) diff += Math.PI * 2;
+        this.camera.angle += diff * 0.12;
       } else {
         this.cameraLock = null;
       }
