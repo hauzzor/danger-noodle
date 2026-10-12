@@ -627,13 +627,31 @@ export class World {
     } else {
       // flagella: kick inward (opposite the outward tail) and go active briefly.
       if (blob.firing) return;
-      const dirx = -Math.cos(blob.angle);
-      const diry = -Math.sin(blob.angle);
+      const a = this.flagellaAngle(blob);
+      const dirx = -Math.cos(a);
+      const diry = -Math.sin(a);
       blob.px -= dirx * blob.impulse;
       blob.py -= diry * blob.impulse;
       blob.firing = true;
       blob.fireTimer = 0;
     }
+  }
+
+  // The direction a flagella's tail points: away from the structure (from the
+  // centroid of the other blocks through this one), plus the block's manual
+  // angle offset. The kick is applied the opposite way (inward).
+  flagellaAngle(b: Blob): number {
+    let cx = 0;
+    let cy = 0;
+    let n = 0;
+    for (const o of this.blobs) {
+      if (o.removed || o.id === b.id) continue;
+      cx += o.x;
+      cy += o.y;
+      n++;
+    }
+    if (n === 0) return b.angle;
+    return Math.atan2(b.y - cy / n, b.x - cx / n) + b.angle;
   }
 
   private updateFlagellas(dt: number): void {

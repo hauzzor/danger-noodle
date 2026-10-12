@@ -153,22 +153,22 @@ export class Renderer {
   private drawBlobs(world: World): void {
     for (const blob of world.activeBlobs()) {
       if (blob.held) continue;
-      if (blob.type === "flagella") this.drawFlagellum(blob, world.time);
+      if (blob.type === "flagella") this.drawFlagellum(blob, world.flagellaAngle(blob), world.time);
       this.drawBlock(blob);
       if (blob.contracting || blob.grabbing) this.drawActiveGlow(blob);
     }
   }
 
-  // A wavy flagellum tail reaching outward along the block's angle.
-  private drawFlagellum(blob: Blob, t: number, alpha = 1): void {
+  // A wavy flagellum tail reaching outward along `angle`.
+  private drawFlagellum(blob: Blob, angle: number, t: number, alpha = 1): void {
     const { ctx, camera } = this;
     const hue = this.hue(blob);
     const base = blob.radius;
     const len = 2.6;
     const segs = 16;
     const amp = blob.firing ? 0.5 : 0.22;
-    const dirx = Math.cos(blob.angle);
-    const diry = Math.sin(blob.angle);
+    const dirx = Math.cos(angle);
+    const diry = Math.sin(angle);
     const nx = -diry;
     const ny = dirx;
     ctx.save();
@@ -339,7 +339,7 @@ export class Renderer {
       );
     }
     this.drawBlock(ghost, 0.5);
-    if (drag.type === "flagella") this.drawFlagellum(ghost, world.time, 0.5);
+    if (drag.type === "flagella") this.drawFlagellum(ghost, world.flagellaAngle(ghost), world.time, 0.5);
 
     const p = this.P(drag.pos.x, drag.pos.y);
     const r = BLOB_RADIUS * camera.zoom;

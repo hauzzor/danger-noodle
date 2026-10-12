@@ -254,10 +254,10 @@ export class App {
     } else if (blob.type === "flagella") {
       items.push({
         kind: "slider",
-        label: "Angle",
+        label: "Angle offset",
         value: Math.round((blob.angle * 180) / Math.PI),
-        min: 0,
-        max: 360,
+        min: -180,
+        max: 180,
         step: 5,
         onChange: (v) => {
           this.setValue(blob, "angle", (v * Math.PI) / 180);
