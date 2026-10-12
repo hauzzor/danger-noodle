@@ -674,6 +674,24 @@ export class World {
     return bestMid;
   }
 
+  // A camera block's orientation, fixed relative to its neighbours: the
+  // direction to the centroid of its neighbours (so it rotates with the
+  // structure), plus the block's manual offset.
+  cameraAngle(b: Blob): number {
+    let cx = 0;
+    let cy = 0;
+    let n = 0;
+    for (const nb of this.neighbors(b.id - 1)) {
+      const o = this.blobs[nb.other];
+      if (!o || o.removed) continue;
+      cx += o.x;
+      cy += o.y;
+      n++;
+    }
+    if (n === 0) return b.angle;
+    return Math.atan2(cy / n - b.y, cx / n - b.x) + b.angle;
+  }
+
   private updateFlagellas(dt: number): void {
     for (const b of this.blobs) {
       if (b.removed || !b.firing) continue;

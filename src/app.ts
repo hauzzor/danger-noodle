@@ -92,7 +92,7 @@ export class App {
       if (b) {
         this.camera.x = b.x;
         this.camera.y = b.y;
-        this.camera.angle = b.angle;
+        this.camera.angle = this.world.cameraAngle(b);
       } else {
         this.cameraLock = null;
       }
@@ -306,10 +306,10 @@ export class App {
     } else if (blob.type === "camera") {
       items.push({
         kind: "slider",
-        label: "Angle",
+        label: "Angle offset",
         value: Math.round((blob.angle * 180) / Math.PI),
-        min: 0,
-        max: 360,
+        min: -180,
+        max: 180,
         step: 5,
         onChange: (v) => {
           this.setValue(blob, "angle", (v * Math.PI) / 180);
