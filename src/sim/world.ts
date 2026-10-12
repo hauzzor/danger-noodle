@@ -12,6 +12,8 @@ export const CHUNK = 30;
 const DRIFT = 0.2;
 // How long a flagella stays "active" (ignoring further signals) after firing.
 const FLAGELLA_FIRE_TIME = 0.5;
+// Distance at which an encoded-distance signal gives a flagella 1x strength.
+const FLAGELLA_SEE_REF = 6;
 
 export class World {
   blobs: Blob[] = [];
@@ -551,7 +553,12 @@ export class World {
   }
 
   // `maxHops` is the maximum number of hops a single signal may spread.
-  private emitSignal(source: Blob, color = source.signalColor, dir?: { x: number; y: number }): void {
+  private emitSignal(
+    source: Blob,
+    color = source.signalColor,
+    dir?: { x: number; y: number },
+    dist?: number,
+  ): void {
     const maxHops = source.maxHops > 0 ? source.maxHops : MAX_HOPS;
     const hopDist = new Map<number, number>();
     const start = source.id - 1;
@@ -583,6 +590,8 @@ export class World {
       hasDirection: dir != null,
       dirX: dir ? dir.x : 0,
       dirY: dir ? dir.y : 0,
+      hasDistance: dist != null,
+      distance: dist ?? 0,
     });
   }
 
@@ -649,8 +658,14 @@ export class World {
       }
       const dirx = -Math.cos(a);
       const diry = -Math.sin(a);
-      blob.px -= dirx * blob.impulse;
-      blob.py -= diry * blob.impulse;
+      // Fire harder the closer the seen block is (when distance is encoded).
+      const scale =
+        pulse && pulse.hasDistance && pulse.distance > 0
+          ? Math.min(4, Math.max(0.25, FLAGELLA_SEE_REF / pulse.distance))
+          : 1;
+      const mag = blob.impulse * scale;
+      blob.px -= dirx * mag;
+      blob.py -= diry * mag;
       blob.firing = true;
       blob.fireTimer = 0;
     }
@@ -734,7 +749,7 @@ export class World {
         const ang = Math.acos(Math.max(-1, Math.min(1, (dx * dirx + dy * diry) / d)));
         if (ang > half) continue;
         if (!this.segmentClear(eye, t.x, t.y)) continue;
-        this.emitSignal(eye, TYPE_SIGNAL_COLOR[t.type] ?? 3, { x: dx / d, y: dy / d });
+        this.emitSignal(eye, TYPE_SIGNAL_COLOR[t.type] ?? 3, { x: dx / d, y: dy / d }, d);
       }
     }
   }

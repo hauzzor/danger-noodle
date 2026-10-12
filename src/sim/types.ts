@@ -85,6 +85,8 @@ export interface Pulse {
   hasDirection: boolean;
   dirX: number;
   dirY: number;
+  hasDistance: boolean;
+  distance: number;
 }
 
 export interface Neighbor {
