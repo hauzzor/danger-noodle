@@ -33,7 +33,7 @@ export function createStarterCreature(world: World): void {
 const NPC_RING = 5; // ring vertices
 const NPC_RADIUS = 2.2; // ring radius, in game units (unit = block diameter)
 const NPC_FLAGELLA: number[] = [0, 2, 4]; // ring indices that are flagella
-const NPC_FLAGELLA_IMPULSE = 1.1; // stronger than the 0.6 default so fleeing reads clearly
+const NPC_FLAGELLA_IMPULSE = 0.55; // half the previous 1.1 so fleeing reads calmer
 const NPC_EYE_RANGE = 22; // how far an NPC can spot the player's structure
 const NPC_EYE_PERIOD = 0.6; // seconds between scans (fires ~twice a second)
 
