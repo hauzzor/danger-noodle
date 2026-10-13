@@ -3,6 +3,7 @@ import { closestOnSegment } from "../sim/geometry";
 import { units } from "../sim/units";
 import type { Blob, BlockType, Traveller, Vec2 } from "../sim/types";
 import type { World } from "../sim/world";
+import { spawnNpcBlob } from "../world/generator";
 
 type Hit =
   | { kind: "none" }
@@ -21,13 +22,15 @@ export interface InteractionOptions {
 }
 
 export interface DragRender {
-  kind: "blob" | "traveller";
+  kind: "blob" | "traveller" | "creature";
   pos: Vec2;
   type: BlockType;
   id: number;
   // Block ids that would be bonded if placed here. The ghost draws exactly
   // these, and the drop builds exactly these ("build what was shown").
   plan: number[];
+  // Set when kind === "creature": which NPC species is being placed.
+  creatureKind?: "basic" | "predator";
 }
 
 const TRAVELLER_PICK = units(0.24);
@@ -46,6 +49,7 @@ export class Interaction {
   private drag: DragState | null = null;
   private spawned: Traveller | null = null;
   private spawnType: BlockType | null = null;
+  private creatureKind: "basic" | "predator" | null = null;
   private lastPointer: Vec2 | null = null;
   private lastPinch = 0;
 
@@ -73,10 +77,40 @@ export class Interaction {
     return this.spawnType;
   }
 
+  // The NPC species currently being placed from the toolbar, or null.
+  getCreatureKind(): "basic" | "predator" | null {
+    return this.creatureKind;
+  }
+
+  // Toolbar spawn of a whole NPC creature: first click arms it, then each click
+  // on the canvas places a creature at the cursor. Clicking the same button
+  // again cancels; picking a block cancels it too.
+  beginSpawnCreature(kind: "basic" | "predator"): void {
+    if (this.creatureKind === kind) {
+      this.creatureKind = null;
+      this.dragRender = null;
+      this.o.onChange();
+      return;
+    }
+    this.spawnType = null;
+    this.spawned = null;
+    this.creatureKind = kind;
+    const here = this.handPos();
+    this.dragRender = { kind: "creature", pos: here, type: "basic", id: 0, plan: [], creatureKind: kind };
+    this.o.onChange();
+  }
+
+  private handPos(): Vec2 {
+    return this.lastPointer
+      ? this.o.camera.s2w(this.lastPointer.x, this.lastPointer.y)
+      : { x: this.o.camera.x, y: this.o.camera.y };
+  }
+
   // Toolbar spawn: first click puts a block of `type` in the hand; clicking the
   // same button again cancels. Placing a block refills the hand with the same
   // type (see onDown), so you can place repeatedly.
   beginSpawn(type: BlockType): void {
+    this.creatureKind = null;
     if (this.spawnType === type) {
       this.spawnType = null;
       this.spawned = null;
@@ -104,7 +138,7 @@ export class Interaction {
   // Recompute the shown plan from the current world so a drop builds exactly
   // the beams the player can see. Called once per rendered frame.
   refreshDragPlan(): void {
-    if (!this.dragRender) return;
+    if (!this.dragRender || this.dragRender.kind === "creature") return;
     const pos = this.drag ? this.drag.pos : this.dragRender.pos;
     this.dragRender.plan = this.planFor(pos);
   }
@@ -177,6 +211,16 @@ export class Interaction {
       this.o.onChange();
       return;
     }
+    if (this.creatureKind) {
+      // Place a whole creature at the cursor, then keep the mode armed so the
+      // player can place several in a row (click the button again to stop).
+      const p = this.local(e);
+      this.lastPointer = p;
+      const pos = this.o.camera.s2w(p.x, p.y);
+      spawnNpcBlob(this.o.getWorld(), pos.x, pos.y, this.creatureKind);
+      this.o.onChange();
+      return;
+    }
     if (this.o.uiOpen()) {
       this.o.onDismissUi();
       return;
@@ -219,6 +263,9 @@ export class Interaction {
     if (this.spawned && this.dragRender) {
       const pos = this.o.camera.s2w(this.lastPointer.x, this.lastPointer.y);
       this.dragRender = { kind: "traveller", pos, type: this.spawned.type, id: this.spawned.id, plan: this.planFor(pos) };
+    }
+    if (this.creatureKind && this.dragRender) {
+      this.dragRender.pos = this.o.camera.s2w(this.lastPointer.x, this.lastPointer.y);
     }
     if (!this.pointers.has(e.pointerId)) return;
     const prev = this.pointers.get(e.pointerId)!;

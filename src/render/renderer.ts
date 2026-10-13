@@ -4,6 +4,7 @@ import { BLOB_RADIUS } from "../sim/units";
 import type { World } from "../sim/world";
 import type { Blob, BlockType } from "../sim/types";
 import type { DragRender } from "../ui/interaction";
+import { NPC_RADIUS, npcLayout } from "../world/generator";
 
 const BG_TOP = "#103a22";
 const BG_MID = "#0a2718";
@@ -396,17 +397,17 @@ export class Renderer {
     }
   }
 
-  private drawGhost(world: World, drag: DragRender): void {
-    const { ctx, camera } = this;
-    const ghost: Blob = {
-      id: drag.id,
-      type: drag.type,
+  // A throwaway Blob used to preview a block (or a whole creature) pre-placement.
+  private ghostBlob(type: BlockType, x: number, y: number, id: number): Blob {
+    return {
+      id,
+      type,
       faction: 0,
       kind: "player",
-      x: drag.pos.x,
-      y: drag.pos.y,
-      px: drag.pos.x,
-      py: drag.pos.y,
+      x,
+      y,
+      px: x,
+      py: y,
       radius: BLOB_RADIUS,
       invMass: 1,
       onGround: false,
@@ -440,6 +441,15 @@ export class Renderer {
       period: 1,
       viewTimer: 0,
     };
+  }
+
+  private drawGhost(world: World, drag: DragRender): void {
+    const { ctx, camera } = this;
+    if (drag.kind === "creature") {
+      this.drawCreatureGhost(world, drag);
+      return;
+    }
+    const ghost = this.ghostBlob(drag.type, drag.pos.x, drag.pos.y, drag.id);
 
     for (const id of drag.plan) {
       const other = world.getBlob(id);
@@ -467,6 +477,43 @@ export class Renderer {
     ctx.beginPath();
     ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
     ctx.strokeStyle = "rgba(230, 255, 235, 0.7)";
+    ctx.lineWidth = 2;
+    ctx.setLineDash([6, 5]);
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
+  // Preview of a whole NPC creature at the cursor: its beams, body blocks and
+  // flagellum tails, drawn translucent.
+  private drawCreatureGhost(world: World, drag: DragRender): void {
+    const { ctx, camera } = this;
+    const kind = drag.creatureKind ?? "basic";
+    const layout = npcLayout(drag.pos.x, drag.pos.y);
+    const ghosts = layout.parts.map((part, i) => {
+      const g = this.ghostBlob(part.type, part.x, part.y, i);
+      g.kind = kind;
+      g.faction = 1; // draw with the NPC palette
+      return g;
+    });
+    for (const [a, b] of layout.bonds) {
+      this.drawBeam(
+        this.P(ghosts[a].x, ghosts[a].y),
+        this.P(ghosts[b].x, ghosts[b].y),
+        this.blockColor(ghosts[a]),
+        this.blockColor(ghosts[b]),
+        0.4,
+      );
+    }
+    for (const g of ghosts) {
+      if (g.type === "flagella") {
+        this.drawFlagellum(g, Math.atan2(g.y - drag.pos.y, g.x - drag.pos.x), world.time, 0.5);
+      }
+      this.drawBlock(g, 0.5);
+    }
+    const p = this.P(drag.pos.x, drag.pos.y);
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, NPC_RADIUS * camera.zoom, 0, Math.PI * 2);
+    ctx.strokeStyle = "rgba(230, 255, 235, 0.5)";
     ctx.lineWidth = 2;
     ctx.setLineDash([6, 5]);
     ctx.stroke();

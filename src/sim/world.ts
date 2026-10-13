@@ -3,7 +3,7 @@ import { mulberry32 } from "../engine/rng";
 import { closestOnSegment, segmentsCross, segSegClosest } from "./geometry";
 import { ALERT_SIGNAL_COLOR, TYPE_SIGNAL_COLOR } from "./palette";
 import { BEAM_RADIUS, BLOB_RADIUS, MAX_BOND_DIST, MIN_BOND_DIST, TRAVELLER_RADIUS } from "./units";
-import type { Blob, BlobKind, BlockType, Bond, Neighbor, Pulse, Traveller, Vec2 } from "./types";
+import type { Blob, BlockType, Bond, Neighbor, Pulse, Traveller, Vec2 } from "./types";
 
 export const HOP_TIME = 0.12;
 export const MAX_HOPS = 42;
@@ -744,8 +744,9 @@ export class World {
   //  - the player's eyes sweep a forward view cone and emit a type-coloured
   //    signal for each loose block they see, plus the alert signal for any NPC
   //    block they spot.
-  //  - a basic blob's eyes sweep all around for the player's structure and fire
-  //    the alert signal pointing away from it, so its flagella kick it clear.
+  //  - a basic blob's eyes sweep all around for the nearest threat (the
+  //    player's structure or a predator) and fire the alert signal pointing
+  //    away from it, so its flagella kick it clear.
   //  - a predator's eyes sweep all around for basic blobs and fire the alert
   //    signal toward one, so its flagella drive it into the chase.
   // Only a creature's own flagella accept its alert colour, and signals never
@@ -796,16 +797,18 @@ export class World {
     }
   }
 
-  // An NPC eye scans all around for the nearest visible block of its prey and
-  // fires one alert signal at it: a basic blob aims away from the player (flee)
-  // while a predator aims toward a basic blob (chase).
+  // An NPC eye scans all around for the nearest visible block it reacts to and
+  // fires one alert signal at it: a basic blob flees whatever threatens it (the
+  // player's structure or a predator), aiming away, while a predator chases the
+  // nearest basic blob, aiming toward it.
   private eyeHunt(eye: Blob): void {
     const chase = eye.kind === "predator";
-    const prey: BlobKind = chase ? "basic" : "player";
     let best: Blob | null = null;
     let bestD = eye.range;
     for (const k of this.blobs) {
-      if (k.removed || k.kind !== prey) continue;
+      if (k.removed) continue;
+      const react = chase ? k.kind === "basic" : k.kind === "player" || k.kind === "predator";
+      if (!react) continue;
       const d = Math.hypot(k.x - eye.x, k.y - eye.y);
       if (d > bestD || d < 1e-6) continue;
       if (!this.segmentClear(eye, k.x, k.y, k)) continue;

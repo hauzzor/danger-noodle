@@ -32,7 +32,7 @@ export function createStarterCreature(world: World): void {
 // blobs; each relies on the alert signal its own eye fires and its own
 // flagella accept, so signals never leak between creatures.
 const NPC_RING = 5; // ring vertices
-const NPC_RADIUS = 2.2; // ring radius, in game units (unit = block diameter)
+export const NPC_RADIUS = 2.2; // ring radius, in game units (unit = block diameter)
 const NPC_FLAGELLA: number[] = [0, 2, 4]; // ring indices that are flagella
 
 type NpcKind = Exclude<BlobKind, "player">;
@@ -51,34 +51,58 @@ const NPC_SPECS: Record<NpcKind, NpcSpec> = {
   predator: { impulse: 0.32, range: 26, period: 0.6 },
 };
 
+export interface BlobPart {
+  type: BlockType;
+  x: number;
+  y: number;
+}
+
+export interface BlobLayout {
+  parts: BlobPart[];
+  bonds: [number, number][];
+}
+
+// The shared wheel layout (five ring blocks, then the central eye) used both to
+// build a creature and to draw its spawn ghost.
+export function npcLayout(cx: number, cy: number): BlobLayout {
+  const parts: BlobPart[] = [];
+  for (let i = 0; i < NPC_RING; i++) {
+    const a = -Math.PI / 2 + (i * 2 * Math.PI) / NPC_RING;
+    parts.push({
+      type: NPC_FLAGELLA.includes(i) ? "flagella" : "basic",
+      x: cx + Math.cos(a) * NPC_RADIUS,
+      y: cy + Math.sin(a) * NPC_RADIUS,
+    });
+  }
+  parts.push({ type: "eye", x: cx, y: cy }); // centre
+  const bonds: [number, number][] = [];
+  for (let i = 0; i < NPC_RING; i++) {
+    bonds.push([i, (i + 1) % NPC_RING]);
+    bonds.push([i, NPC_RING]); // spoke to the eye
+  }
+  return { parts, bonds };
+}
+
 export function createNpcBlob(world: World, cx: number, cy: number, kind: NpcKind): number {
   const faction = world.newFaction();
   const spec = NPC_SPECS[kind];
-  const ring: Blob[] = [];
-  for (let i = 0; i < NPC_RING; i++) {
-    const a = -Math.PI / 2 + (i * 2 * Math.PI) / NPC_RING;
-    const x = cx + Math.cos(a) * NPC_RADIUS;
-    const y = cy + Math.sin(a) * NPC_RADIUS;
-    const type: BlockType = NPC_FLAGELLA.includes(i) ? "flagella" : "basic";
-    const b = world.addBlob(type, x, y);
+  const layout = npcLayout(cx, cy);
+  const blobs: Blob[] = layout.parts.map((part) => {
+    const b = world.addBlob(part.type, part.x, part.y);
     b.faction = faction;
     b.kind = kind;
-    if (type === "flagella") {
+    if (part.type === "flagella") {
       b.acceptColors = [ALERT_SIGNAL_COLOR];
       b.impulse = spec.impulse;
+    } else if (part.type === "eye") {
+      b.fov = 360; // NPC eyes watch all around
+      b.range = spec.range;
+      b.period = spec.period;
     }
-    ring.push(b);
-  }
-  const eye = world.addBlob("eye", cx, cy);
-  eye.faction = faction;
-  eye.kind = kind;
-  eye.fov = 360; // NPC eyes watch all around
-  eye.range = spec.range;
-  eye.period = spec.period;
-  for (let i = 0; i < NPC_RING; i++) {
-    const next = ring[(i + 1) % NPC_RING];
-    world.restoreBond(ring[i], next, Math.hypot(next.x - ring[i].x, next.y - ring[i].y), 1);
-    world.restoreBond(ring[i], eye, Math.hypot(eye.x - ring[i].x, eye.y - ring[i].y), 1);
+    return b;
+  });
+  for (const [a, c] of layout.bonds) {
+    world.restoreBond(blobs[a], blobs[c], Math.hypot(blobs[c].x - blobs[a].x, blobs[c].y - blobs[a].y), 1);
   }
   return faction;
 }

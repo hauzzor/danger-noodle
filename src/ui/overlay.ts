@@ -21,6 +21,7 @@ export interface Overlay {
   setMenu: (on: boolean) => void;
   setAdvanced: (on: boolean) => void;
   setActiveSpawn: (type: BlockType | null) => void;
+  setActiveBlob: (kind: "basic" | "predator" | null) => void;
   setStatus: (text: string) => void;
   toast: (text: string) => void;
 }
@@ -113,13 +114,18 @@ export function createOverlay(root: HTMLElement, handlers: OverlayHandlers): Ove
     ["basic", "Basic Blob"],
     ["predator", "Predator Blob"],
   ];
+  const npcButtons = new Map<"basic" | "predator", HTMLButtonElement>();
   for (const [kind, label] of npcDefs) {
     const btn = document.createElement("button");
     btn.className = `btn spawn npc-${kind}`;
     btn.textContent = label;
     btn.addEventListener("click", () => handlers.onSpawnBlob(kind));
     leftBar.append(btn);
+    npcButtons.set(kind, btn);
   }
+  const setActiveBlob = (kind: "basic" | "predator" | null): void => {
+    for (const [k, btn] of npcButtons) btn.classList.toggle("active", k === kind);
+  };
 
   const actions = document.createElement("div");
   actions.className = "actions";
@@ -164,6 +170,7 @@ export function createOverlay(root: HTMLElement, handlers: OverlayHandlers): Ove
     setMenu,
     setAdvanced,
     setActiveSpawn,
+    setActiveBlob,
     setStatus: (text: string) => {
       status.textContent = text;
     },
