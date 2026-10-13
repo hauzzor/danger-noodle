@@ -759,14 +759,16 @@ export class World {
     const diry = Math.sin(a);
     const half = ((eye.fov * Math.PI) / 180) / 2;
     // Distance to a visible point in the cone, or 0 if it is out of view.
-    const seenAt = (x: number, y: number): number => {
+    // `ignore` is the block being looked at: it (and its beams) must not count
+    // as its own occluder.
+    const seenAt = (x: number, y: number, ignore?: Blob): number => {
       const dx = x - eye.x;
       const dy = y - eye.y;
       const d = Math.hypot(dx, dy);
       if (d > eye.range || d < 1e-6) return 0;
       const ang = Math.acos(Math.max(-1, Math.min(1, (dx * dirx + dy * diry) / d)));
       if (ang > half) return 0;
-      if (!this.segmentClear(eye, x, y)) return 0;
+      if (!this.segmentClear(eye, x, y, ignore)) return 0;
       return d;
     };
     for (const t of this.travellers) {
@@ -777,7 +779,7 @@ export class World {
     }
     for (const k of this.blobs) {
       if (k.removed || k.faction === 0) continue;
-      const d = seenAt(k.x, k.y);
+      const d = seenAt(k.x, k.y, k);
       if (d === 0) continue;
       this.emitSignal(eye, ALERT_SIGNAL_COLOR, { x: (k.x - eye.x) / d, y: (k.y - eye.y) / d }, d);
     }
@@ -792,7 +794,7 @@ export class World {
       if (k.removed || k.faction !== 0) continue;
       const d = Math.hypot(k.x - eye.x, k.y - eye.y);
       if (d > bestD || d < 1e-6) continue;
-      if (!this.segmentClear(eye, k.x, k.y)) continue;
+      if (!this.segmentClear(eye, k.x, k.y, k)) continue;
       best = k;
       bestD = d;
     }
@@ -804,16 +806,20 @@ export class World {
 
   // True if the segment from `eye` to (x2, y2) is unblocked by any other block
   // (circle) or beam (capsule). Blocks and beams of the eye's own faction are
-  // ignored, so a creature's own body never blinds it.
-  private segmentClear(eye: Blob, x2: number, y2: number): boolean {
+  // ignored, so a creature's own body never blinds it. `ignore` (the block being
+  // looked at) and its beams are also skipped, so a target never occludes
+  // itself.
+  private segmentClear(eye: Blob, x2: number, y2: number, ignore?: Blob): boolean {
     for (const k of this.blobs) {
       if (k.removed || k.id === eye.id || k.faction === eye.faction) continue;
+      if (ignore && k.id === ignore.id) continue;
       const cp = closestOnSegment(k.x, k.y, eye.x, eye.y, x2, y2);
       if (Math.hypot(k.x - cp.x, k.y - cp.y) < k.radius) return false;
     }
     for (const bond of this.bonds) {
       if (!bond.active) continue;
       if (bond.a === eye.id - 1 || bond.b === eye.id - 1) continue;
+      if (ignore && (bond.a === ignore.id - 1 || bond.b === ignore.id - 1)) continue;
       const a = this.blobs[bond.a];
       const b = this.blobs[bond.b];
       if (!a || !b || a.removed || b.removed) continue;

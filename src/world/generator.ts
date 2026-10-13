@@ -33,7 +33,9 @@ export function createStarterCreature(world: World): void {
 const NPC_RING = 5; // ring vertices
 const NPC_RADIUS = 2.2; // ring radius, in game units (unit = block diameter)
 const NPC_FLAGELLA: number[] = [0, 2, 4]; // ring indices that are flagella
+const NPC_FLAGELLA_IMPULSE = 1.1; // stronger than the 0.6 default so fleeing reads clearly
 const NPC_EYE_RANGE = 22; // how far an NPC can spot the player's structure
+const NPC_EYE_PERIOD = 0.6; // seconds between scans (fires ~twice a second)
 
 export function createBasicBlob(world: World, cx: number, cy: number): number {
   const faction = world.newFaction();
@@ -45,13 +47,17 @@ export function createBasicBlob(world: World, cx: number, cy: number): number {
     const type: BlockType = NPC_FLAGELLA.includes(i) ? "flagella" : "basic";
     const b = world.addBlob(type, x, y);
     b.faction = faction;
-    if (type === "flagella") b.acceptColors = [ALERT_SIGNAL_COLOR];
+    if (type === "flagella") {
+      b.acceptColors = [ALERT_SIGNAL_COLOR];
+      b.impulse = NPC_FLAGELLA_IMPULSE;
+    }
     ring.push(b);
   }
   const eye = world.addBlob("eye", cx, cy);
   eye.faction = faction;
   eye.fov = 360; // NPC eyes watch all around
   eye.range = NPC_EYE_RANGE;
+  eye.period = NPC_EYE_PERIOD;
   for (let i = 0; i < NPC_RING; i++) {
     const next = ring[(i + 1) % NPC_RING];
     world.restoreBond(ring[i], next, Math.hypot(next.x - ring[i].x, next.y - ring[i].y), 1);
