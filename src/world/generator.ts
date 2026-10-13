@@ -43,12 +43,13 @@ interface NpcSpec {
   period: number; // seconds between scans
 }
 
-// All three flagella paddle together along the signal direction, so the per-
-// flagellum impulse is roughly a third of the old one-direction kick. A predator
-// pushes a little harder than a basic blob so the chase actually connects.
+// All three flagella paddle together along the signal direction, so speed scales
+// with impulse / period and agility with a short period (frequent small nudges,
+// little overshoot) versus a long period (big slow lunges, wide turns).
+// So: basic = slow but agile, predator = fast but clumsy.
 const NPC_SPECS: Record<NpcKind, NpcSpec> = {
-  basic: { impulse: 0.18, range: 22, period: 0.6 },
-  predator: { impulse: 0.32, range: 26, period: 0.6 },
+  basic: { impulse: 0.1, range: 22, period: 0.6 },
+  predator: { impulse: 0.5, range: 26, period: 0.9 },
 };
 
 export interface BlobPart {
