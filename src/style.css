@@ -124,6 +124,14 @@ body {
 #ui .overlay-left .spawn.flagella { border-left-color: #d24fd2; }
 #ui .overlay-left .spawn.camera { border-left-color: #101015; }
 #ui .overlay-left .spawn.eye { border-left-color: #56c8f0; }
+#ui .overlay-left .spawn.npc-basic { border-left-color: #4f7bff; }
+#ui .overlay-left .spawn.npc-predator { border-left-color: #ff5b4a; }
+
+#ui .overlay-left .npc-divider {
+  height: 1px;
+  background: var(--border);
+  margin: 2px 0;
+}
 
 #ui .btn {
   padding: 6px 12px;

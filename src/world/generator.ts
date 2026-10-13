@@ -91,6 +91,22 @@ export function createPredatorBlob(world: World, cx: number, cy: number): number
   return createNpcBlob(world, cx, cy, "predator");
 }
 
+// Place an NPC creature as close to (x, y) as possible without overlapping
+// anything. Returns the new faction id, or null if no clear spot was found.
+export function spawnNpcBlob(world: World, x: number, y: number, kind: NpcKind): number | null {
+  if (spotIsClear(world, x, y)) return createNpcBlob(world, x, y, kind);
+  for (let ring = 1; ring <= 12; ring++) {
+    const r = ring * NPC_CLEARANCE;
+    for (let k = 0; k < 12; k++) {
+      const a = (k / 12) * Math.PI * 2;
+      const px = x + Math.cos(a) * r;
+      const py = y + Math.sin(a) * r;
+      if (spotIsClear(world, px, py)) return createNpcBlob(world, px, py, kind);
+    }
+  }
+  return null;
+}
+
 const NPC_COUNT = 4;
 const PREDATOR_COUNT = 2;
 const NPC_ORBIT_MIN = 14;

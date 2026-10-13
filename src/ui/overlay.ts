@@ -6,6 +6,7 @@ export interface OverlayHandlers {
   onToggleMenu: () => void;
   onToggleAdvanced: () => void;
   onSpawn: (type: BlockType) => void;
+  onSpawnBlob: (kind: "basic" | "predator") => void;
   onRegenerate: () => void;
   onClear: () => void;
   onSave: () => void;
@@ -104,6 +105,21 @@ export function createOverlay(root: HTMLElement, handlers: OverlayHandlers): Ove
   const setActiveSpawn = (type: BlockType | null): void => {
     for (const [t, btn] of spawnButtons) btn.classList.toggle("active", t === type);
   };
+
+  const npcDivider = document.createElement("div");
+  npcDivider.className = "npc-divider";
+  leftBar.append(npcDivider);
+  const npcDefs: ["basic" | "predator", string][] = [
+    ["basic", "Basic Blob"],
+    ["predator", "Predator Blob"],
+  ];
+  for (const [kind, label] of npcDefs) {
+    const btn = document.createElement("button");
+    btn.className = `btn spawn npc-${kind}`;
+    btn.textContent = label;
+    btn.addEventListener("click", () => handlers.onSpawnBlob(kind));
+    leftBar.append(btn);
+  }
 
   const actions = document.createElement("div");
   actions.className = "actions";

@@ -4,7 +4,7 @@ import { Renderer } from "./render/renderer";
 import { Interaction } from "./ui/interaction";
 import { createOverlay, type Overlay } from "./ui/overlay";
 import { createRadial, type Radial, type RadialItem } from "./ui/radial";
-import { createWorld, createStarterCreature, createBasicBlob, createPredatorBlob } from "./world/generator";
+import { createWorld, createStarterCreature, createBasicBlob, createPredatorBlob, spawnNpcBlob } from "./world/generator";
 import { createProgress, type Progress } from "./game/state";
 import { SIGNAL_PALETTE } from "./sim/palette";
 import { deserialize, exportSnapshot, importSnapshot, loadSlot, saveSlot, serialize } from "./persistence/save";
@@ -60,6 +60,7 @@ export class App {
         this.interaction.beginSpawn(type);
         this.overlay.setActiveSpawn(this.interaction.getSpawnType());
       },
+      onSpawnBlob: (kind) => this.spawnBlobAtView(kind),
       onRegenerate: () => this.regenerate(),
       onClear: () => this.clearCreature(),
       onSave: () => this.save(),
@@ -425,6 +426,17 @@ export class App {
     for (const b of targets) {
       (b as unknown as Record<string, unknown>)[key] = Array.isArray(value) ? [...value] : value;
     }
+  }
+
+  // Spawn an NPC creature near the centre of the current view, nudged to the
+  // nearest clear spot so it never lands on top of anything.
+  private spawnBlobAtView(kind: "basic" | "predator"): void {
+    const placed = spawnNpcBlob(this.world, this.camera.x, this.camera.y, kind);
+    if (placed == null) {
+      this.overlay.toast("No room to spawn a blob here");
+      return;
+    }
+    this.overlay.toast(kind === "predator" ? "Spawned a predator blob" : "Spawned a basic blob");
   }
 
   private regenerate(): void {
