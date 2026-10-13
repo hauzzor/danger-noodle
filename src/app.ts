@@ -4,7 +4,7 @@ import { Renderer } from "./render/renderer";
 import { Interaction } from "./ui/interaction";
 import { createOverlay, type Overlay } from "./ui/overlay";
 import { createRadial, type Radial, type RadialItem } from "./ui/radial";
-import { createWorld, createStarterCreature } from "./world/generator";
+import { createWorld, createStarterCreature, createBasicBlob } from "./world/generator";
 import { createProgress, type Progress } from "./game/state";
 import { SIGNAL_PALETTE } from "./sim/palette";
 import { deserialize, exportSnapshot, importSnapshot, loadSlot, saveSlot, serialize } from "./persistence/save";
@@ -435,8 +435,8 @@ export class App {
   }
 
   private clearCreature(): void {
-    for (const b of this.world.activeBlobs()) this.world.removeBlob(b.id);
-    // Keep scattered loose blocks; only the creature and its riders go.
+    // Only the player's structure is cleared; NPC blobs and loose blocks stay.
+    for (const b of this.world.activeBlobs()) if (b.faction === 0) this.world.removeBlob(b.id);
     this.world.travellers = this.world.travellers.filter((t) => !t.attached);
     createStarterCreature(this.world);
     this.resetView();
@@ -496,6 +496,7 @@ export class App {
       }),
       regenerate: (): void => this.regenerate(),
       clearCreature: (): void => this.clearCreature(),
+      spawnBlob: (x: number, y: number): number => createBasicBlob(this.world, x, y),
       save: (): void => this.save(),
       load: (): void => this.load(),
     };

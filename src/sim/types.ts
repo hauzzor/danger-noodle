@@ -8,6 +8,9 @@ export type BlockType = (typeof BLOCK_TYPES)[number];
 export interface Blob {
   id: number;
   type: BlockType;
+  // Ownership: 0 is the player's structure, >0 is an autonomous "basic blob"
+  // NPC (the value is that blob's group id). NPCs are not player-controllable.
+  faction: number;
   x: number;
   y: number;
   px: number;

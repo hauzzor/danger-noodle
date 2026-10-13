@@ -53,13 +53,16 @@ export class Renderer {
   }
 
   private hue(blob: Blob): number {
-    if (blob.type === "generator") return 2;
-    if (blob.type === "contractor") return 205;
-    if (blob.type === "grabber") return 40;
-    if (blob.type === "flagella") return 300;
-    if (blob.type === "eye") return 200;
-    if (blob.type === "camera") return 220;
-    return 142 + (((blob.id * 47) % 13) - 6);
+    let h: number;
+    if (blob.type === "generator") h = 2;
+    else if (blob.type === "contractor") h = 205;
+    else if (blob.type === "grabber") h = 40;
+    else if (blob.type === "flagella") h = 300;
+    else if (blob.type === "eye") h = 200;
+    else if (blob.type === "camera") h = 220;
+    else h = 142 + (((blob.id * 47) % 13) - 6);
+    // Autonomous NPC blobs get a shifted hue so they read as "not yours".
+    return blob.faction !== 0 ? h + 36 : h;
   }
 
   private blockColor(blob: Blob): string {
@@ -193,6 +196,15 @@ export class Renderer {
     ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
     ctx.fillStyle = g;
     ctx.fill();
+    // A faint halo marks an autonomous NPC block, so it is clear at a glance
+    // that it is not the player's to control.
+    if (blob.faction !== 0) {
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, r * 1.25, 0, Math.PI * 2);
+      ctx.strokeStyle = `hsla(${h}, 25%, 64%, 0.32)`;
+      ctx.lineWidth = Math.max(1, r * 0.12);
+      ctx.stroke();
+    }
     ctx.globalAlpha = 1;
   }
 
@@ -382,6 +394,7 @@ export class Renderer {
     const ghost: Blob = {
       id: drag.id,
       type: drag.type,
+      faction: 0,
       x: drag.pos.x,
       y: drag.pos.y,
       px: drag.pos.x,

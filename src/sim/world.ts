@@ -1,7 +1,7 @@
 import { updateTravellers } from "./travel";
 import { mulberry32 } from "../engine/rng";
 import { closestOnSegment, segmentsCross, segSegClosest } from "./geometry";
-import { TYPE_SIGNAL_COLOR } from "./palette";
+import { ALERT_SIGNAL_COLOR, TYPE_SIGNAL_COLOR } from "./palette";
 import { BEAM_RADIUS, BLOB_RADIUS, MAX_BOND_DIST, MIN_BOND_DIST, TRAVELLER_RADIUS } from "./units";
 import type { Blob, BlockType, Bond, Neighbor, Pulse, Traveller, Vec2 } from "./types";
 
@@ -33,15 +33,23 @@ export class World {
   private adj: Neighbor[][] = [];
   private nextId = 1;
   private nextPulse = 1;
+  // Next autonomous-blob group id (see Blob.faction). 0 is reserved for the
+  // player, so NPC groups start at 1.
+  nextFaction = 1;
 
   newId(): number {
     return this.nextId++;
+  }
+
+  newFaction(): number {
+    return this.nextFaction++;
   }
 
   addBlob(type: BlockType, x: number, y: number, radius = BLOB_RADIUS): Blob {
     const blob: Blob = {
       id: this.blobs.length + 1,
       type,
+      faction: 0,
       x,
       y,
       px: x,
@@ -142,6 +150,8 @@ export class World {
     const result: Blob[] = [];
     for (const o of this.activeBlobs()) {
       if (o.removed || o.held) continue;
+      // Placement is always the player's, so never bond to an NPC's structure.
+      if (o.faction !== 0) continue;
       if (this.degree(o) >= this.maxBondsPerBlob) continue;
       const d = Math.hypot(o.x - x, o.y - y);
       if (d < MIN_BOND_DIST || d > MAX_BOND_DIST) continue;
@@ -720,37 +730,84 @@ export class World {
     }
   }
 
-  // Eyes look outward and, every period, emit a signal coloured by each
-  // scattered loose block they can see within their view cone (raycast).
+  // Eyes act every `period`, by faction:
+  //  - the player's eyes (faction 0) sweep a forward view cone and emit a
+  //    type-coloured signal for each loose block they see (drives contractors,
+  //    grabbers and flagella the player builds). They also spot autonomous
+  //    blobs and emit the alert signal for those, mirroring an NPC's eye.
+  //  - an NPC's eyes sweep all around for the player's structure and, on
+  //    sighting it, fire the alert signal pointing away from the threat. Only
+  //    that NPC's own flagella accept the alert colour, so it kicks itself
+  //    clear without any signal crossing over to the player.
   private updateEyes(dt: number): void {
     for (const eye of this.blobs) {
       if (eye.removed || eye.type !== "eye") continue;
       eye.viewTimer += dt;
       if (eye.viewTimer < Math.max(0.05, eye.period)) continue;
       eye.viewTimer = 0;
-      const a = this.flagellaAngle(eye);
-      const dirx = Math.cos(a);
-      const diry = Math.sin(a);
-      const half = ((eye.fov * Math.PI) / 180) / 2;
-      for (const t of this.travellers) {
-        if (t.attached) continue;
-        const dx = t.x - eye.x;
-        const dy = t.y - eye.y;
-        const d = Math.hypot(dx, dy);
-        if (d > eye.range || d < 1e-6) continue;
-        const ang = Math.acos(Math.max(-1, Math.min(1, (dx * dirx + dy * diry) / d)));
-        if (ang > half) continue;
-        if (!this.segmentClear(eye, t.x, t.y)) continue;
-        this.emitSignal(eye, TYPE_SIGNAL_COLOR[t.type] ?? 3, { x: dx / d, y: dy / d }, d);
-      }
+      if (eye.faction !== 0) this.eyeHuntPlayer(eye);
+      else this.eyeScanLoose(eye);
     }
   }
 
+  // Player eye: a type-coloured signal per loose block inside its view cone,
+  // and the alert signal per autonomous-blob block it sees. Both are aimed at
+  // what was seen and only fire on a clear line of sight.
+  private eyeScanLoose(eye: Blob): void {
+    const a = this.flagellaAngle(eye);
+    const dirx = Math.cos(a);
+    const diry = Math.sin(a);
+    const half = ((eye.fov * Math.PI) / 180) / 2;
+    // Distance to a visible point in the cone, or 0 if it is out of view.
+    const seenAt = (x: number, y: number): number => {
+      const dx = x - eye.x;
+      const dy = y - eye.y;
+      const d = Math.hypot(dx, dy);
+      if (d > eye.range || d < 1e-6) return 0;
+      const ang = Math.acos(Math.max(-1, Math.min(1, (dx * dirx + dy * diry) / d)));
+      if (ang > half) return 0;
+      if (!this.segmentClear(eye, x, y)) return 0;
+      return d;
+    };
+    for (const t of this.travellers) {
+      if (t.attached) continue;
+      const d = seenAt(t.x, t.y);
+      if (d === 0) continue;
+      this.emitSignal(eye, TYPE_SIGNAL_COLOR[t.type] ?? 3, { x: (t.x - eye.x) / d, y: (t.y - eye.y) / d }, d);
+    }
+    for (const k of this.blobs) {
+      if (k.removed || k.faction === 0) continue;
+      const d = seenAt(k.x, k.y);
+      if (d === 0) continue;
+      this.emitSignal(eye, ALERT_SIGNAL_COLOR, { x: (k.x - eye.x) / d, y: (k.y - eye.y) / d }, d);
+    }
+  }
+
+  // NPC eye: scans all around for the nearest visible block of the player's
+  // structure and fires one alert signal, aimed away from it.
+  private eyeHuntPlayer(eye: Blob): void {
+    let best: Blob | null = null;
+    let bestD = eye.range;
+    for (const k of this.blobs) {
+      if (k.removed || k.faction !== 0) continue;
+      const d = Math.hypot(k.x - eye.x, k.y - eye.y);
+      if (d > bestD || d < 1e-6) continue;
+      if (!this.segmentClear(eye, k.x, k.y)) continue;
+      best = k;
+      bestD = d;
+    }
+    if (!best) return;
+    const dx = best.x - eye.x;
+    const dy = best.y - eye.y;
+    this.emitSignal(eye, ALERT_SIGNAL_COLOR, { x: -dx / bestD, y: -dy / bestD }, bestD);
+  }
+
   // True if the segment from `eye` to (x2, y2) is unblocked by any other block
-  // (circle) or beam (capsule).
+  // (circle) or beam (capsule). Blocks and beams of the eye's own faction are
+  // ignored, so a creature's own body never blinds it.
   private segmentClear(eye: Blob, x2: number, y2: number): boolean {
     for (const k of this.blobs) {
-      if (k.removed || k.id === eye.id) continue;
+      if (k.removed || k.id === eye.id || k.faction === eye.faction) continue;
       const cp = closestOnSegment(k.x, k.y, eye.x, eye.y, x2, y2);
       if (Math.hypot(k.x - cp.x, k.y - cp.y) < k.radius) return false;
     }
@@ -760,6 +817,7 @@ export class World {
       const a = this.blobs[bond.a];
       const b = this.blobs[bond.b];
       if (!a || !b || a.removed || b.removed) continue;
+      if (a.faction === eye.faction) continue;
       const r = segSegClosest(eye.x, eye.y, x2, y2, a.x, a.y, b.x, b.y);
       if (r.d < BEAM_RADIUS) return false;
     }

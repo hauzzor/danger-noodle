@@ -16,7 +16,15 @@ export const SIGNAL_PALETTE: SignalColor[] = [
   { name: "pink", css: "#ff6bc1" },
 ];
 
+// A dedicated signal colour used only by autonomous basic-blob NPCs. Their
+// eyes emit it when they spot the player's structure and only their own
+// flagella accept it, so the signal stays local to the NPC (it never crosses
+// structures). Not offered to generators/contractors.
+export const ALERT_SIGNAL_COLOR = SIGNAL_PALETTE.length;
+export const ALERT_SIGNAL_CSS = "#ffffff";
+
 export function signalCss(index: number): string {
+  if (index === ALERT_SIGNAL_COLOR) return ALERT_SIGNAL_CSS;
   return SIGNAL_PALETTE[index]?.css ?? SIGNAL_PALETTE[0].css;
 }
 

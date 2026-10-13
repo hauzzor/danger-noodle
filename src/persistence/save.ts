@@ -10,6 +10,7 @@ export interface Snapshot {
   blobs: {
     id: number;
     type: BlockType;
+    faction?: number;
     x: number;
     y: number;
     px: number;
@@ -48,13 +49,14 @@ export interface Snapshot {
 
 export function serialize(world: World, progress: Progress): Snapshot {
   return {
-    version: 13,
+    version: 14,
     timestamp: Date.now(),
     progress: { ...progress },
     time: world.time,
     blobs: world.activeBlobs().map((b) => ({
       id: b.id,
       type: b.type,
+      faction: b.faction,
       x: b.x,
       y: b.y,
       px: b.px,
@@ -100,8 +102,11 @@ export function deserialize(data: Snapshot): { world: World; progress: Progress 
   world.time = data.time ?? 0;
 
   const idMap = new Map<number, number>();
+  let maxFaction = 0;
   for (const bd of data.blobs) {
     const blob = world.addBlob(bd.type ?? "basic", bd.x, bd.y, bd.radius);
+    blob.faction = bd.faction ?? 0;
+    if (blob.faction > maxFaction) maxFaction = blob.faction;
     blob.px = bd.px;
     blob.py = bd.py;
     blob.emitOn = bd.emitOn ?? false;
@@ -123,6 +128,8 @@ export function deserialize(data: Snapshot): { world: World; progress: Progress 
     blob.period = bd.period ?? 1;
     idMap.set(bd.id, blob.id);
   }
+  // Keep new NPC groups distinct from any restored ones.
+  world.nextFaction = maxFaction + 1;
 
   for (const bond of data.bonds) {
     const a = world.blobs[(idMap.get(bond.a) ?? 0) - 1];

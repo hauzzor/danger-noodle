@@ -127,7 +127,7 @@ export class Interaction {
     let bestB: Blob | null = null;
     let bestBD = BLOB_PICK;
     for (const b of world.activeBlobs()) {
-      if (b.held) continue;
+      if (b.held || b.faction !== 0) continue;
       const d = Math.hypot(b.x - wp.x, b.y - wp.y);
       if (d < bestBD) {
         bestBD = d;
@@ -148,6 +148,7 @@ export class Interaction {
       const a = world.blobs[bond.a];
       const b = world.blobs[bond.b];
       if (!a || !b || a.removed || b.removed || a.held || b.held) continue;
+      if (a.faction !== 0 || b.faction !== 0) continue;
       const cp = closestOnSegment(wp.x, wp.y, a.x, a.y, b.x, b.y);
       const d = Math.hypot(wp.x - cp.x, wp.y - cp.y);
       if (d < bestBeamD) {
