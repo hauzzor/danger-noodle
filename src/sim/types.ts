@@ -4,13 +4,18 @@ export const BLOCK_TYPES = ["basic", "generator", "contractor", "grabber", "flag
 
 export type BlockType = (typeof BLOCK_TYPES)[number];
 
+// What a block belongs to. Autonomous NPC creatures come in species: a "basic"
+// blob flees the player, a "predator" blob chases basic blobs.
+export type BlobKind = "player" | "basic" | "predator";
+
 
 export interface Blob {
   id: number;
   type: BlockType;
-  // Ownership: 0 is the player's structure, >0 is an autonomous "basic blob"
-  // NPC (the value is that blob's group id). NPCs are not player-controllable.
+  // Ownership: 0 is the player's structure, >0 is an autonomous NPC (the value
+  // is that creature's group id). NPCs are not player-controllable.
   faction: number;
+  kind: BlobKind;
   x: number;
   y: number;
   px: number;

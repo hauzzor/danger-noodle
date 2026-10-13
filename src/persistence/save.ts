@@ -1,5 +1,5 @@
 import { HOP_TIME, MAX_HOPS, World } from "../sim/world";
-import type { BlockType, Traveller } from "../sim/types";
+import type { BlobKind, BlockType, Traveller } from "../sim/types";
 import type { Progress } from "../game/state";
 
 export interface Snapshot {
@@ -11,6 +11,7 @@ export interface Snapshot {
     id: number;
     type: BlockType;
     faction?: number;
+    kind?: BlobKind;
     x: number;
     y: number;
     px: number;
@@ -49,7 +50,7 @@ export interface Snapshot {
 
 export function serialize(world: World, progress: Progress): Snapshot {
   return {
-    version: 14,
+    version: 15,
     timestamp: Date.now(),
     progress: { ...progress },
     time: world.time,
@@ -57,6 +58,7 @@ export function serialize(world: World, progress: Progress): Snapshot {
       id: b.id,
       type: b.type,
       faction: b.faction,
+      kind: b.kind,
       x: b.x,
       y: b.y,
       px: b.px,
@@ -106,6 +108,7 @@ export function deserialize(data: Snapshot): { world: World; progress: Progress 
   for (const bd of data.blobs) {
     const blob = world.addBlob(bd.type ?? "basic", bd.x, bd.y, bd.radius);
     blob.faction = bd.faction ?? 0;
+    blob.kind = bd.kind ?? (blob.faction === 0 ? "player" : "basic");
     if (blob.faction > maxFaction) maxFaction = blob.faction;
     blob.px = bd.px;
     blob.py = bd.py;

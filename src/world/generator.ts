@@ -1,6 +1,6 @@
 import { World } from "../sim/world";
 import { ALERT_SIGNAL_COLOR } from "../sim/palette";
-import type { Blob, BlockType } from "../sim/types";
+import type { Blob, BlobKind, BlockType } from "../sim/types";
 
 const SPAWN = { x: 0, y: 0 };
 const BODY_POINTS: [number, number][] = [
@@ -25,20 +25,35 @@ export function createStarterCreature(world: World): void {
   for (const [a, b] of BODY_BONDS) world.addBond(ids[a], ids[b]);
 }
 
-// An autonomous NPC "basic blob": a wheel-like creature with a body ring, a
-// central eye and a few flagella. It is deliberately not built with the
-// player's build rules (no travellers, welded directly), so it never grows or
-// changes; it just floats and flees the player. Its flagella only accept the
-// dedicated alert signal its own eye fires.
+// Autonomous NPC creatures. Both species share the same wheel-like body (a
+// 5-node ring, three flagella and a central eye) built outside the player's
+// build rules (no travellers, welded directly); only the species and colour
+// differ. A "basic" blob flees the player, a "predator" blob chases basic
+// blobs; each relies on the alert signal its own eye fires and its own
+// flagella accept, so signals never leak between creatures.
 const NPC_RING = 5; // ring vertices
 const NPC_RADIUS = 2.2; // ring radius, in game units (unit = block diameter)
 const NPC_FLAGELLA: number[] = [0, 2, 4]; // ring indices that are flagella
-const NPC_FLAGELLA_IMPULSE = 0.55; // half the previous 1.1 so fleeing reads calmer
-const NPC_EYE_RANGE = 22; // how far an NPC can spot the player's structure
-const NPC_EYE_PERIOD = 0.6; // seconds between scans (fires ~twice a second)
 
-export function createBasicBlob(world: World, cx: number, cy: number): number {
+type NpcKind = Exclude<BlobKind, "player">;
+
+interface NpcSpec {
+  impulse: number; // flagella kick strength
+  range: number; // how far the eye can spot prey, in game units
+  period: number; // seconds between scans
+}
+
+// All three flagella paddle together along the signal direction, so the per-
+// flagellum impulse is roughly a third of the old one-direction kick. A predator
+// pushes a little harder than a basic blob so the chase actually connects.
+const NPC_SPECS: Record<NpcKind, NpcSpec> = {
+  basic: { impulse: 0.18, range: 22, period: 0.6 },
+  predator: { impulse: 0.32, range: 26, period: 0.6 },
+};
+
+export function createNpcBlob(world: World, cx: number, cy: number, kind: NpcKind): number {
   const faction = world.newFaction();
+  const spec = NPC_SPECS[kind];
   const ring: Blob[] = [];
   for (let i = 0; i < NPC_RING; i++) {
     const a = -Math.PI / 2 + (i * 2 * Math.PI) / NPC_RING;
@@ -47,17 +62,19 @@ export function createBasicBlob(world: World, cx: number, cy: number): number {
     const type: BlockType = NPC_FLAGELLA.includes(i) ? "flagella" : "basic";
     const b = world.addBlob(type, x, y);
     b.faction = faction;
+    b.kind = kind;
     if (type === "flagella") {
       b.acceptColors = [ALERT_SIGNAL_COLOR];
-      b.impulse = NPC_FLAGELLA_IMPULSE;
+      b.impulse = spec.impulse;
     }
     ring.push(b);
   }
   const eye = world.addBlob("eye", cx, cy);
   eye.faction = faction;
+  eye.kind = kind;
   eye.fov = 360; // NPC eyes watch all around
-  eye.range = NPC_EYE_RANGE;
-  eye.period = NPC_EYE_PERIOD;
+  eye.range = spec.range;
+  eye.period = spec.period;
   for (let i = 0; i < NPC_RING; i++) {
     const next = ring[(i + 1) % NPC_RING];
     world.restoreBond(ring[i], next, Math.hypot(next.x - ring[i].x, next.y - ring[i].y), 1);
@@ -66,7 +83,16 @@ export function createBasicBlob(world: World, cx: number, cy: number): number {
   return faction;
 }
 
+export function createBasicBlob(world: World, cx: number, cy: number): number {
+  return createNpcBlob(world, cx, cy, "basic");
+}
+
+export function createPredatorBlob(world: World, cx: number, cy: number): number {
+  return createNpcBlob(world, cx, cy, "predator");
+}
+
 const NPC_COUNT = 4;
+const PREDATOR_COUNT = 2;
 const NPC_ORBIT_MIN = 14;
 const NPC_ORBIT_MAX = 26;
 // Minimum centre-to-block distance when picking a spawn spot. The blob's outer
@@ -91,19 +117,21 @@ function spawnNpcBlobs(world: World, seed: number): void {
     s = (Math.imul(s, 1664525) + 1013904223) >>> 0;
     return s / 4294967296;
   };
-  for (let i = 0; i < NPC_COUNT; i++) {
-    // Try random spots until one is clear of every other blob; skip this NPC
-    // rather than ever placing it on top of another.
+  // Try random spots until one is clear of every other blob; skip this NPC
+  // rather than ever placing it on top of another.
+  const place = (kind: NpcKind): void => {
     for (let attempt = 0; attempt < NPC_SPAWN_TRIES; attempt++) {
       const a = rnd() * Math.PI * 2;
       const d = NPC_ORBIT_MIN + rnd() * (NPC_ORBIT_MAX - NPC_ORBIT_MIN);
       const x = Math.cos(a) * d;
       const y = Math.sin(a) * d;
       if (!spotIsClear(world, x, y)) continue;
-      createBasicBlob(world, x, y);
+      createNpcBlob(world, x, y, kind);
       break;
     }
-  }
+  };
+  for (let i = 0; i < NPC_COUNT; i++) place("basic");
+  for (let i = 0; i < PREDATOR_COUNT; i++) place("predator");
 }
 
 export function createWorld(seed: number): World {

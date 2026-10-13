@@ -61,8 +61,15 @@ export class Renderer {
     else if (blob.type === "eye") h = 200;
     else if (blob.type === "camera") h = 220;
     else h = 142 + (((blob.id * 47) % 13) - 6);
-    // Autonomous NPC blobs get a shifted hue so they read as "not yours".
-    return blob.faction !== 0 ? h + 36 : h;
+    // NPC colour by species: basic blobs read blue, predators read red. Pull
+    // every block's hue toward that colour so the whole creature reads as one.
+    if (blob.kind !== "player") {
+      const target = blob.kind === "predator" ? 355 : 210;
+      const t = blob.kind === "predator" ? 0.7 : 0.65;
+      const diff = ((target - h + 540) % 360) - 180;
+      return (h + diff * t + 360) % 360;
+    }
+    return h;
   }
 
   private blockColor(blob: Blob): string {
@@ -395,6 +402,7 @@ export class Renderer {
       id: drag.id,
       type: drag.type,
       faction: 0,
+      kind: "player",
       x: drag.pos.x,
       y: drag.pos.y,
       px: drag.pos.x,

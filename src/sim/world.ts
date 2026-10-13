@@ -3,7 +3,7 @@ import { mulberry32 } from "../engine/rng";
 import { closestOnSegment, segmentsCross, segSegClosest } from "./geometry";
 import { ALERT_SIGNAL_COLOR, TYPE_SIGNAL_COLOR } from "./palette";
 import { BEAM_RADIUS, BLOB_RADIUS, MAX_BOND_DIST, MIN_BOND_DIST, TRAVELLER_RADIUS } from "./units";
-import type { Blob, BlockType, Bond, Neighbor, Pulse, Traveller, Vec2 } from "./types";
+import type { Blob, BlobKind, BlockType, Bond, Neighbor, Pulse, Traveller, Vec2 } from "./types";
 
 export const HOP_TIME = 0.12;
 export const MAX_HOPS = 42;
@@ -50,6 +50,7 @@ export class World {
       id: this.blobs.length + 1,
       type,
       faction: 0,
+      kind: "player",
       x,
       y,
       px: x,
@@ -651,21 +652,30 @@ export class World {
       blob.grabX = blob.x;
       blob.grabY = blob.y;
     } else {
-      // flagella: kick inward (opposite the outward tail) and go active briefly.
+      // flagella: kick and go active briefly. An autonomous blob has no single
+      // "forward", so on a directional signal every flagellum paddles straight
+      // along the signal direction (the eye already aims flee/chase correctly),
+      // which drives a clean straight-line escape or pursuit. The player's
+      // flagella keep the tail-relative thrust and the alignment gate.
       if (blob.firing) return;
-      const a = this.flagellaAngle(blob);
-      // A directional signal only fires the flagella if it points the same way
-      // as the thrust vector (inward), within 60 degrees.
-      if (pulse && pulse.hasDirection) {
-        const thrust = a + Math.PI;
-        const sig = Math.atan2(pulse.dirY, pulse.dirX);
-        let diff = sig - thrust;
-        while (diff > Math.PI) diff -= Math.PI * 2;
-        while (diff < -Math.PI) diff += Math.PI * 2;
-        if (Math.abs(diff) > Math.PI / 3) return;
+      let dirx: number;
+      let diry: number;
+      if (pulse && pulse.hasDirection && blob.kind !== "player") {
+        dirx = pulse.dirX;
+        diry = pulse.dirY;
+      } else {
+        const a = this.flagellaAngle(blob);
+        if (pulse && pulse.hasDirection) {
+          const thrust = a + Math.PI;
+          const sig = Math.atan2(pulse.dirY, pulse.dirX);
+          let diff = sig - thrust;
+          while (diff > Math.PI) diff -= Math.PI * 2;
+          while (diff < -Math.PI) diff += Math.PI * 2;
+          if (Math.abs(diff) > Math.PI / 3) return;
+        }
+        dirx = -Math.cos(a);
+        diry = -Math.sin(a);
       }
-      const dirx = -Math.cos(a);
-      const diry = -Math.sin(a);
       blob.px -= dirx * blob.impulse;
       blob.py -= diry * blob.impulse;
       blob.firing = true;
@@ -730,23 +740,24 @@ export class World {
     }
   }
 
-  // Eyes act every `period`, by faction:
-  //  - the player's eyes (faction 0) sweep a forward view cone and emit a
-  //    type-coloured signal for each loose block they see (drives contractors,
-  //    grabbers and flagella the player builds). They also spot autonomous
-  //    blobs and emit the alert signal for those, mirroring an NPC's eye.
-  //  - an NPC's eyes sweep all around for the player's structure and, on
-  //    sighting it, fire the alert signal pointing away from the threat. Only
-  //    that NPC's own flagella accept the alert colour, so it kicks itself
-  //    clear without any signal crossing over to the player.
+  // Eyes act every `period`, by species:
+  //  - the player's eyes sweep a forward view cone and emit a type-coloured
+  //    signal for each loose block they see, plus the alert signal for any NPC
+  //    block they spot.
+  //  - a basic blob's eyes sweep all around for the player's structure and fire
+  //    the alert signal pointing away from it, so its flagella kick it clear.
+  //  - a predator's eyes sweep all around for basic blobs and fire the alert
+  //    signal toward one, so its flagella drive it into the chase.
+  // Only a creature's own flagella accept its alert colour, and signals never
+  // cross between structures.
   private updateEyes(dt: number): void {
     for (const eye of this.blobs) {
       if (eye.removed || eye.type !== "eye") continue;
       eye.viewTimer += dt;
       if (eye.viewTimer < Math.max(0.05, eye.period)) continue;
       eye.viewTimer = 0;
-      if (eye.faction !== 0) this.eyeHuntPlayer(eye);
-      else this.eyeScanLoose(eye);
+      if (eye.kind === "player") this.eyeScanLoose(eye);
+      else this.eyeHunt(eye);
     }
   }
 
@@ -785,13 +796,16 @@ export class World {
     }
   }
 
-  // NPC eye: scans all around for the nearest visible block of the player's
-  // structure and fires one alert signal, aimed away from it.
-  private eyeHuntPlayer(eye: Blob): void {
+  // An NPC eye scans all around for the nearest visible block of its prey and
+  // fires one alert signal at it: a basic blob aims away from the player (flee)
+  // while a predator aims toward a basic blob (chase).
+  private eyeHunt(eye: Blob): void {
+    const chase = eye.kind === "predator";
+    const prey: BlobKind = chase ? "basic" : "player";
     let best: Blob | null = null;
     let bestD = eye.range;
     for (const k of this.blobs) {
-      if (k.removed || k.faction !== 0) continue;
+      if (k.removed || k.kind !== prey) continue;
       const d = Math.hypot(k.x - eye.x, k.y - eye.y);
       if (d > bestD || d < 1e-6) continue;
       if (!this.segmentClear(eye, k.x, k.y, k)) continue;
@@ -799,9 +813,10 @@ export class World {
       bestD = d;
     }
     if (!best) return;
-    const dx = best.x - eye.x;
-    const dy = best.y - eye.y;
-    this.emitSignal(eye, ALERT_SIGNAL_COLOR, { x: -dx / bestD, y: -dy / bestD }, bestD);
+    const sign = chase ? 1 : -1;
+    const dx = (best.x - eye.x) * sign;
+    const dy = (best.y - eye.y) * sign;
+    this.emitSignal(eye, ALERT_SIGNAL_COLOR, { x: dx / bestD, y: dy / bestD }, bestD);
   }
 
   // True if the segment from `eye` to (x2, y2) is unblocked by any other block

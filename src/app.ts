@@ -4,7 +4,7 @@ import { Renderer } from "./render/renderer";
 import { Interaction } from "./ui/interaction";
 import { createOverlay, type Overlay } from "./ui/overlay";
 import { createRadial, type Radial, type RadialItem } from "./ui/radial";
-import { createWorld, createStarterCreature, createBasicBlob } from "./world/generator";
+import { createWorld, createStarterCreature, createBasicBlob, createPredatorBlob } from "./world/generator";
 import { createProgress, type Progress } from "./game/state";
 import { SIGNAL_PALETTE } from "./sim/palette";
 import { deserialize, exportSnapshot, importSnapshot, loadSlot, saveSlot, serialize } from "./persistence/save";
@@ -497,6 +497,7 @@ export class App {
       regenerate: (): void => this.regenerate(),
       clearCreature: (): void => this.clearCreature(),
       spawnBlob: (x: number, y: number): number => createBasicBlob(this.world, x, y),
+      spawnPredator: (x: number, y: number): number => createPredatorBlob(this.world, x, y),
       save: (): void => this.save(),
       load: (): void => this.load(),
     };
