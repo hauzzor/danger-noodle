@@ -69,6 +69,21 @@ export function createBasicBlob(world: World, cx: number, cy: number): number {
 const NPC_COUNT = 4;
 const NPC_ORBIT_MIN = 14;
 const NPC_ORBIT_MAX = 26;
+// Minimum centre-to-block distance when picking a spawn spot. The blob's outer
+// ring reaches NPC_RADIUS (2.2) from its centre, so keeping every existing block
+// this far away leaves a full block-diameter gap and guarantees the new blob
+// never overlaps another one.
+const NPC_CLEARANCE = 5.0;
+const NPC_SPAWN_TRIES = 80;
+
+// True if a blob centred at (x, y) would not overlap any existing block.
+function spotIsClear(world: World, x: number, y: number): boolean {
+  for (const b of world.blobs) {
+    if (b.removed) continue;
+    if (Math.hypot(b.x - x, b.y - y) < NPC_CLEARANCE) return false;
+  }
+  return true;
+}
 
 function spawnNpcBlobs(world: World, seed: number): void {
   let s = (seed >>> 0) || 1;
@@ -77,9 +92,17 @@ function spawnNpcBlobs(world: World, seed: number): void {
     return s / 4294967296;
   };
   for (let i = 0; i < NPC_COUNT; i++) {
-    const a = rnd() * Math.PI * 2;
-    const d = NPC_ORBIT_MIN + rnd() * (NPC_ORBIT_MAX - NPC_ORBIT_MIN);
-    createBasicBlob(world, Math.cos(a) * d, Math.sin(a) * d);
+    // Try random spots until one is clear of every other blob; skip this NPC
+    // rather than ever placing it on top of another.
+    for (let attempt = 0; attempt < NPC_SPAWN_TRIES; attempt++) {
+      const a = rnd() * Math.PI * 2;
+      const d = NPC_ORBIT_MIN + rnd() * (NPC_ORBIT_MAX - NPC_ORBIT_MIN);
+      const x = Math.cos(a) * d;
+      const y = Math.sin(a) * d;
+      if (!spotIsClear(world, x, y)) continue;
+      createBasicBlob(world, x, y);
+      break;
+    }
   }
 }
 
